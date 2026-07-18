@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const WEBHOOK_URL = "https://proojectta.app.n8n.cloud/webhook/financial-analysis";
+const WEBHOOK_URL = `${import.meta.env.BASE_URL}api/analyze`;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
