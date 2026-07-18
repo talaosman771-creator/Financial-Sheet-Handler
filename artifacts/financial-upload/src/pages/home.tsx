@@ -141,7 +141,7 @@ function DataPreview({ data, onClear }: { data: FinancialData; onClear: () => vo
       {/* Summary bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-green-500" />
+          <CheckCircle2 className="w-4 h-4" style={{ color: '#4ade80' }} />
           <span className="text-sm font-medium text-foreground">
             {totalSections} section{totalSections !== 1 ? "s" : ""}, {totalRows} line item{totalRows !== 1 ? "s" : ""} loaded
           </span>
@@ -150,7 +150,7 @@ function DataPreview({ data, onClear }: { data: FinancialData; onClear: () => vo
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 text-xs gap-1 text-muted-foreground"
+          className="h-7 text-xs gap-1 text-muted-foreground rounded-full"
           onClick={onClear}
         >
           <X className="w-3 h-3" />
@@ -159,12 +159,12 @@ function DataPreview({ data, onClear }: { data: FinancialData; onClear: () => vo
       </div>
 
       {/* Section breakdown */}
-      <div className="bg-muted/40 rounded-xl border border-border overflow-hidden">
+      <div className="rounded-xl border border-border overflow-hidden" style={{ background: 'rgba(0,0,0,0.2)' }}>
         {Object.entries(data).map(([section, items], si) => (
           <div key={section}>
             {si > 0 && <Separator />}
-            <div className="px-4 py-2 bg-muted/50">
-              <span className="text-xs font-semibold text-foreground">{section}</span>
+            <div className="px-4 py-2" style={{ background: 'rgba(0,0,0,0.15)' }}>
+              <span className="text-xs font-bold tracking-widest uppercase text-accent">{section}</span>
             </div>
             <div className="px-4 pb-2">
               {Object.entries(items).map(([label, value]) => (
@@ -240,10 +240,11 @@ function FileDropZone({
   return (
     <label
       className={[
-        "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
-        isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 cursor-pointer transition-all",
+        isDragging ? "border-accent/60" : "border-accent/25 hover:border-accent/50",
         disabled ? "opacity-50 pointer-events-none" : "",
       ].join(" ")}
+      style={{ background: isDragging ? 'rgba(212,146,15,0.06)' : 'rgba(212,146,15,0.03)' }}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={onDrop}
@@ -259,11 +260,13 @@ function FileDropZone({
           e.target.value = "";
         }}
       />
-      {isParsing ? (
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      ) : (
-        <Upload className="w-6 h-6 text-muted-foreground" />
-      )}
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(212,146,15,0.12)' }}>
+        {isParsing ? (
+          <Loader2 className="w-5 h-5 animate-spin text-accent" />
+        ) : (
+          <Upload className="w-5 h-5 text-accent" />
+        )}
+      </div>
       <div className="text-center">
         <p className="text-sm font-medium text-foreground">
           {isParsing ? "Parsing file…" : "Drop file here or click to browse"}
@@ -356,8 +359,8 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
       className="space-y-6"
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center shrink-0">
-          <CheckCircle2 className="w-5 h-5" />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+          <CheckCircle2 className="w-5 h-5" style={{ color: '#4ade80' }} />
         </div>
         <div>
           <h2 className="text-base font-semibold text-foreground">Analysis Complete</h2>
@@ -369,17 +372,17 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
 
       <div className="flex flex-wrap gap-2">
         {data.email_sent_to && (
-          <Badge variant="secondary" className="gap-1.5 text-xs font-normal">
+          <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 text-muted-foreground" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <Mail className="w-3 h-3" />
             Emailed to {data.email_sent_to}
-          </Badge>
+          </span>
         )}
         {data.dashboard_url && (
           <a href={data.dashboard_url} target="_blank" rel="noopener noreferrer">
-            <Badge variant="secondary" className="gap-1.5 text-xs font-normal cursor-pointer hover:bg-muted transition-colors">
+            <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 cursor-pointer text-accent" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.28)' }}>
               <ExternalLink className="w-3 h-3" />
               Open Dashboard
-            </Badge>
+            </span>
           </a>
         )}
       </div>
@@ -387,23 +390,23 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
       <Separator />
 
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold"><TrendingUp className="w-4 h-4 text-primary" />Performance Summary</div>
+        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><TrendingUp className="w-3.5 h-3.5" />Performance Summary</div>
         <p className="text-sm text-muted-foreground leading-relaxed">{data.report.performance_summary}</p>
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold"><DollarSign className="w-4 h-4 text-primary" />Financial Position</div>
+        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><DollarSign className="w-3.5 h-3.5" />Financial Position</div>
         <p className="text-sm text-muted-foreground leading-relaxed">{data.report.financial_position}</p>
       </div>
 
       {data.report.key_metrics?.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold"><BarChart3 className="w-4 h-4 text-primary" />Key Metrics</div>
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><BarChart3 className="w-3.5 h-3.5" />Key Metrics</div>
           <div className="grid grid-cols-2 gap-2">
             {data.report.key_metrics.map((m, i) => (
-              <div key={i} className="bg-muted/50 rounded-lg px-3 py-2.5">
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p className="text-xs text-muted-foreground truncate">{m.label}</p>
-                <p className="text-sm font-semibold text-foreground mt-0.5">{fmt(m.value)}</p>
+                <p className="text-sm font-semibold text-accent mt-0.5">{fmt(m.value)}</p>
                 {m.note && <p className="text-xs text-muted-foreground mt-0.5">{m.note}</p>}
               </div>
             ))}
@@ -413,15 +416,15 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
 
       {data.report.risks?.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="w-4 h-4 text-amber-500" />Risk Factors</div>
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><AlertTriangle className="w-3.5 h-3.5" />Risk Factors</div>
           <ul className="space-y-1.5">
             {data.report.risks.map((r, i) => {
               const text = typeof r === "string" ? r : r.risk;
               const sev = typeof r === "object" ? r.severity : undefined;
               return (
                 <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <span>{text}{sev && <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 font-normal">{sev}</Badge>}</span>
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <span>{text}{sev && <span className="ml-1.5 text-[10px] rounded-full px-2 py-0.5 font-medium text-accent" style={{ background: 'rgba(212,146,15,0.12)' }}>{sev}</span>}</span>
                 </li>
               );
             })}
@@ -430,7 +433,7 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
       )}
 
       <Separator />
-      <Button onClick={onReset} className="w-full" size="lg">Analyze another period</Button>
+      <Button onClick={onReset} className="w-full" size="lg">Analyse Another Period</Button>
     </motion.div>
   );
 }
@@ -453,9 +456,9 @@ function ModeTab({
       type="button"
       onClick={onClick}
       className={[
-        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
         active
-          ? "bg-card shadow-sm text-foreground border border-border"
+          ? "bg-primary text-primary-foreground shadow-sm"
           : "text-muted-foreground hover:text-foreground",
       ].join(" ")}
     >
@@ -566,34 +569,34 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-background text-foreground">
+    <div className="min-h-screen w-full bg-background text-foreground relative overflow-hidden">
 
-      {/* Dark forest green hero banner */}
-      <div className="relative w-full overflow-hidden" style={{ background: 'hsl(148,62%,12%)' }}>
-        {/* Radial glow */}
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 35%, hsl(148,50%,22%) 0%, transparent 65%)' }} />
-        {/* Subtle grid texture */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(hsl(40,30%,90%) 1px, transparent 1px), linear-gradient(90deg, hsl(40,30%,90%) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="relative z-10 max-w-2xl mx-auto px-4 py-12 md:py-16 text-center">
-          <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-5" style={{ color: 'hsl(38,88%,60%)' }}>
+      {/* Background grid texture */}
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      {/* Radial glow top-center */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none" style={{ background: 'radial-gradient(ellipse at center top, hsl(148,50%,18%) 0%, transparent 65%)' }} />
+
+      <div className="relative z-10 max-w-xl mx-auto px-4 py-12 md:py-16">
+
+        {/* Header */}
+        <div className="text-center mb-10">
+          <p className="text-xs font-bold tracking-[0.2em] uppercase text-accent mb-5">
             AI-Powered Financial Intelligence
           </p>
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <BarChart3 className="w-7 h-7" style={{ color: 'hsl(38,88%,60%)' }} />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.25)' }}>
+            <BarChart3 className="w-7 h-7 text-accent" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
             Financial Statement{' '}
-            <span className="italic" style={{ color: 'hsl(38,88%,60%)' }}>Analyser</span>
+            <span className="italic text-accent">Analyser</span>
           </h1>
-          <p className="mt-3 text-sm max-w-sm mx-auto" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto">
             Enter figures manually, upload a spreadsheet, or connect a Google Sheet — AI does the rest.
           </p>
         </div>
-      </div>
 
-      <div className="max-w-2xl mx-auto px-4 -mt-3 pb-16">
         {/* Card */}
-        <div className="bg-card border border-card-border shadow-xl shadow-black/8 rounded-2xl p-6 md:p-8">
+        <div className="bg-card border border-card-border rounded-2xl p-6 md:p-8 shadow-2xl" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
           <AnimatePresence mode="wait">
             {report ? (
               <ReportView key="report" data={report} onReset={handleReset} />
@@ -642,8 +645,8 @@ export default function Home() {
 
                     {/* Mode selector */}
                     <div>
-                      <p className="text-sm font-medium text-foreground mb-3">Financial Data</p>
-                      <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1 w-fit">
+                      <p className="text-xs font-bold tracking-widest uppercase text-accent mb-3">Financial Data</p>
+                      <div className="flex items-center gap-1 p-1 rounded-full w-fit" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.07)' }}>
                         <ModeTab active={mode === "manual"} onClick={() => switchMode("manual")} icon={<Pencil className="w-3.5 h-3.5" />} label="Manual" />
                         <ModeTab active={mode === "file"} onClick={() => switchMode("file")} icon={<FileSpreadsheet className="w-3.5 h-3.5" />} label="Upload file" />
                         <ModeTab active={mode === "sheet"} onClick={() => switchMode("sheet")} icon={<Link2 className="w-3.5 h-3.5" />} label="Google Sheet" />
@@ -657,8 +660,8 @@ export default function Home() {
                           {/* Income Statement */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold">Income Statement</p>
-                              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setManualIncome([...manualIncome, { label: "", value: "" }])} disabled={isSubmitting}>
+                              <p className="text-xs font-bold tracking-widest uppercase text-accent">Income Statement</p>
+                              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-accent hover:text-accent rounded-full px-3" style={{ background: 'rgba(212,146,15,0.1)' }} onClick={() => setManualIncome([...manualIncome, { label: "", value: "" }])} disabled={isSubmitting}>
                                 + Add line
                               </Button>
                             </div>
@@ -681,8 +684,8 @@ export default function Home() {
                           {/* Balance Sheet */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold">Balance Sheet</p>
-                              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setManualBalance([...manualBalance, { label: "", value: "" }])} disabled={isSubmitting}>
+                              <p className="text-xs font-bold tracking-widest uppercase text-accent">Balance Sheet</p>
+                              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-accent hover:text-accent rounded-full px-3" style={{ background: 'rgba(212,146,15,0.1)' }} onClick={() => setManualBalance([...manualBalance, { label: "", value: "" }])} disabled={isSubmitting}>
                                 + Add line
                               </Button>
                             </div>
@@ -747,7 +750,7 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p className="mt-5 text-center text-xs text-muted-foreground">
           Results are written to your Google Sheets dashboard and emailed to the CFO automatically.
         </p>
       </div>

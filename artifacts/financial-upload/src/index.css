@@ -49,56 +49,57 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE — Forest Green + Warm Amber (ka.nz palette) */
+/* DARK FOREST GREEN THEME — matching try.ka.nz/hack */
 :root {
-  --button-outline: rgba(0, 0, 0, 0.12);
-  --badge-outline: rgba(0, 0, 0, 0.06);
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.08);
 
   --opaque-button-border-intensity: -8;
 
-  --elevate-1: rgba(0, 0, 0, 0.03);
-  --elevate-2: rgba(0, 0, 0, 0.08);
+  --elevate-1: rgba(0, 0, 0, 0.15);
+  --elevate-2: rgba(0, 0, 0, 0.25);
 
-  /* Warm cream canvas */
-  --background: 40 22% 95%;
-  --foreground: 148 35% 8%;
-  --border: 40 14% 84%;
-  --input: 40 14% 87%;
-  --ring: 148 62% 20%;
+  /* Dark forest green canvas */
+  --background: 148 55% 7%;
+  --foreground: 40 25% 90%;
+  --border: 148 30% 16%;
+  --input: 148 45% 9%;
+  --ring: 38 88% 44%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 148 35% 8%;
-  --card-border: 40 12% 88%;
+  /* Card = slightly lighter green */
+  --card: 148 48% 10%;
+  --card-foreground: 40 25% 90%;
+  --card-border: 148 28% 17%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 148 35% 8%;
-  --popover-border: 40 12% 88%;
+  --popover: 148 48% 10%;
+  --popover-foreground: 40 25% 90%;
+  --popover-border: 148 28% 17%;
 
-  /* Deep forest green */
-  --primary: 148 62% 12%;
-  --primary-foreground: 40 30% 97%;
+  /* Amber as primary CTA */
+  --primary: 38 88% 44%;
+  --primary-foreground: 148 55% 7%;
 
-  --secondary: 40 16% 91%;
-  --secondary-foreground: 148 35% 8%;
+  --secondary: 148 35% 14%;
+  --secondary-foreground: 40 25% 80%;
 
-  --muted: 40 16% 91%;
-  --muted-foreground: 148 8% 46%;
+  --muted: 148 35% 13%;
+  --muted-foreground: 148 8% 52%;
 
-  /* Warm amber */
+  /* Warm amber accent */
   --accent: 38 88% 44%;
-  --accent-foreground: 0 0% 100%;
+  --accent-foreground: 148 55% 7%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 40 25% 95%;
 
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.875rem;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
 
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -107,29 +108,7 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-.dark {
-  --background: 148 40% 6%;
-  --foreground: 40 20% 95%;
-  --border: 148 20% 14%;
-  --input: 148 20% 14%;
-  --ring: 38 88% 44%;
-  --card: 148 35% 9%;
-  --card-foreground: 40 20% 95%;
-  --card-border: 148 20% 14%;
-  --popover: 148 35% 9%;
-  --popover-foreground: 40 20% 95%;
-  --popover-border: 148 20% 14%;
-  --primary: 38 88% 44%;
-  --primary-foreground: 148 40% 6%;
-  --secondary: 148 20% 14%;
-  --secondary-foreground: 40 20% 95%;
-  --muted: 148 20% 14%;
-  --muted-foreground: 148 8% 55%;
-  --accent: 38 88% 44%;
-  --accent-foreground: 148 40% 6%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 40 20% 95%;
-}
+/* No separate .dark class — the whole app uses the dark green theme */
 
 @layer base {
   * {
