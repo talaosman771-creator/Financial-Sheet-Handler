@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { FinancialCharts } from "@/components/FinancialCharts";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -345,7 +346,7 @@ function GoogleSheetInput({
 
 // ── Report View ───────────────────────────────────────────────────────────────
 
-function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => void }) {
+function ReportView({ data, financialData, onReset }: { data: ReportResponse; financialData: FinancialData; onReset: () => void }) {
   const fmt = (v: string | number) =>
     typeof v === "number"
       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
@@ -414,6 +415,18 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
         </div>
       )}
 
+      {/* ── Charts ── */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent">
+          <BarChart3 className="w-3.5 h-3.5" />Visual Analysis
+        </div>
+        <FinancialCharts
+          financialData={financialData}
+          keyMetrics={data.report.key_metrics ?? []}
+          period={data.period}
+        />
+      </div>
+
       {data.report.risks?.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><AlertTriangle className="w-3.5 h-3.5" />Risk Factors</div>
@@ -474,6 +487,7 @@ export default function Home() {
   const [mode, setMode] = useState<InputMode>("manual");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [report, setReport] = useState<ReportResponse | null>(null);
+  const [submittedFinancialData, setSubmittedFinancialData] = useState<FinancialData>({});
   const [parsedData, setParsedData] = useState<FinancialData | null>(null);
   const [parsedFileName, setParsedFileName] = useState<string | null>(null);
 
@@ -546,6 +560,7 @@ export default function Home() {
       if (!res.ok) throw new Error(`Webhook returned ${res.status}: ${res.statusText}`);
       const data: ReportResponse = await res.json();
       if (!data.success) throw new Error("Webhook returned success: false");
+      setSubmittedFinancialData(financialData);
       setReport(data);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed. Please try again.");
@@ -599,7 +614,7 @@ export default function Home() {
         <div className="bg-card border border-card-border rounded-2xl p-6 md:p-8 shadow-2xl" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
           <AnimatePresence mode="wait">
             {report ? (
-              <ReportView key="report" data={report} onReset={handleReset} />
+              <ReportView key="report" data={report} financialData={submittedFinancialData} onReset={handleReset} />
             ) : (
               <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                 <Form {...form}>
