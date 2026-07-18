@@ -567,20 +567,33 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground">
-      <div className="max-w-2xl mx-auto px-4 py-10 md:py-16">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary text-primary-foreground mb-5 shadow-sm">
-            <BarChart3 className="w-6 h-6" />
+
+      {/* Dark forest green hero banner */}
+      <div className="relative w-full overflow-hidden" style={{ background: 'hsl(148,62%,12%)' }}>
+        {/* Radial glow */}
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 35%, hsl(148,50%,22%) 0%, transparent 65%)' }} />
+        {/* Subtle grid texture */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(hsl(40,30%,90%) 1px, transparent 1px), linear-gradient(90deg, hsl(40,30%,90%) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        <div className="relative z-10 max-w-2xl mx-auto px-4 py-12 md:py-16 text-center">
+          <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-5" style={{ color: 'hsl(38,88%,60%)' }}>
+            AI-Powered Financial Intelligence
+          </p>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <BarChart3 className="w-7 h-7" style={{ color: 'hsl(38,88%,60%)' }} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Financial Analysis</h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-            Enter figures manually, upload a spreadsheet, or connect a Google Sheet — n8n does the rest.
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+            Financial Statement{' '}
+            <span className="italic" style={{ color: 'hsl(38,88%,60%)' }}>Analyser</span>
+          </h1>
+          <p className="mt-3 text-sm max-w-sm mx-auto" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            Enter figures manually, upload a spreadsheet, or connect a Google Sheet — AI does the rest.
           </p>
         </div>
+      </div>
 
+      <div className="max-w-2xl mx-auto px-4 -mt-3 pb-16">
         {/* Card */}
-        <div className="bg-card border border-card-border shadow-lg shadow-black/5 rounded-2xl p-6 md:p-8">
+        <div className="bg-card border border-card-border shadow-xl shadow-black/8 rounded-2xl p-6 md:p-8">
           <AnimatePresence mode="wait">
             {report ? (
               <ReportView key="report" data={report} onReset={handleReset} />
