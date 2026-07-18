@@ -1,0 +1,49 @@
+Here's the honest verification status:
+
+Form branch + shared Gemini/Sheets/Gmail — already proven end-to-end in the earlier live run (execution 3).
+Webhook body-parser — unit-tested against 4 payload shapes, all correct.
+The webhook branch as a whole — could not be auto-verified because the workflow now has two triggers, and the verification harness injects test data into the primary (Form) trigger, so it re-ran the form path. The API nodes are structurally identical to the proven form path plus the tested parser.
+Your webhook for the Replit frontend
+URL (POST):
+
+https://proojectta.app.n8n.cloud/webhook/financial-analysis
+Important: the webhook only serves this production URL once the workflow is published/active. It's currently unpublished.
+
+Request body — send JSON. financialData is flexible (object, array of {label, value}, or a plain string):
+
+{
+  "periodLabel": "Q2 2026",
+  "notes": "optional context",
+  "financialData": {
+    "Income Statement": { "Revenue": 1000000, "Net Income": 210000 },
+    "Balance Sheet": { "Total Current Assets": 350000, "Total Current Liabilities": 120000 }
+  }
+}
+Response — JSON returned to your frontend:
+
+{
+  "success": true,
+  "period": "Q2 2026",
+  "generated_at": "…",
+  "email_sent_to": "legendarysword0@gmail.com",
+  "dashboard_url": "https://docs.google.com/…",
+  "report": { "performance_summary": "…", "financial_position": "…",
+              "key_metrics": [...], "cash_flow_forecast": [...], "risks": [...] }
+}
+The response includes Access-Control-Allow-Origin: * so browser calls from Replit won't be blocked by CORS. On each call it also writes to the Dashboard tab and emails the CFO.
+
+Replit fetch example:
+
+const res = await fetch("https://proojectta.app.n8n.cloud/webhook/financial-analysis", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ periodLabel: "Q2 2026", financialData: {...} }),
+});
+const data = await res.json();
+Two things to decide:
+
+Publish the workflow so the webhook URL goes live for your frontend — want me to publish it now?
+Want me to run a live test of the webhook branch specifically (real Gemini call + email) so we confirm the full API path returns the JSON correctly before you wire up Replit?
+0/800 credits left in your free trial
+Ask anything...
+Preview version. AI can make mistakes; always verify response

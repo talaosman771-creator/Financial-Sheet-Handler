@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Financial Statement Upload"
+version = "1.0.0"
+id = "artifacts/financial-upload"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24790
+
+[services.development]
+run = "pnpm --filter @workspace/financial-upload run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/financial-upload", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/financial-upload/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24790"
+BASE_PATH = "/"
