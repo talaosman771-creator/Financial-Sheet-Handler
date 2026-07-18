@@ -411,20 +411,6 @@ function ReportView({ data, onReset }: { data: ReportResponse; onReset: () => vo
         </div>
       )}
 
-      {data.report.cash_flow_forecast?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Activity className="w-4 h-4 text-primary" />Cash Flow Forecast</div>
-          <div className="space-y-1.5">
-            {data.report.cash_flow_forecast.map((cf, i) => (
-              <div key={i} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
-                <span className="text-xs text-muted-foreground">{cf.period}</span>
-                <span className="text-xs font-medium text-foreground">{fmt(cf.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {data.report.risks?.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="w-4 h-4 text-amber-500" />Risk Factors</div>
