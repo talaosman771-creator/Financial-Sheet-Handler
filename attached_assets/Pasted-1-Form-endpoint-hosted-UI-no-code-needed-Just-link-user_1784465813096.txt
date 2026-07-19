@@ -1,0 +1,82 @@
+1. Form endpoint (hosted UI — no code needed)
+Just link users to it:
+
+https://talaosman771.app.n8n.cloud/form/financial-statement-analyser
+Fields: Period Label (required), Notes (optional). It renders n8n's hosted form; no frontend integration required.
+
+2. API endpoint (for your own frontend)
+This is the one you'll wire up in code.
+
+POST https://talaosman771.app.n8n.cloud/webhook/financial-analysis
+Content-Type: application/json
+Note: while the workflow is unpublished/in test mode, the URL is /webhook-test/financial-analysis and only fires once per "Listen for test event" click. Once you publish the workflow, use the production /webhook/... path above.
+
+Request body
+The Prepare Financials (API) node accepts flexible shapes. Send:
+
+{
+  "periodLabel": "FY2024",
+  "notes": "Optional context: one-offs, assumptions, business events",
+  "financialData": [
+    { "label": "Revenue", "value": 1250000 },
+    { "label": "Gross Profit", "value": 470000 },
+    { "label": "Net Income", "value": 95000 },
+    { "label": "Total Current Assets", "value": 340000 },
+    { "label": "Inventory", "value": 90000 },
+    { "label": "Total Current Liabilities", "value": 200000 },
+    { "label": "Total Liabilities", "value": 520000 },
+    { "label": "Total Shareholders' Equity", "value": 480000 },
+    { "label": "Cash from Operating Activities", "value": 130000 }
+  ]
+}
+financialData also accepts: a plain string, an array of arrays ([["Revenue", 1250000], ...]), or a nested object. Keys financials, data, or statements work as aliases; periodLabel also accepts period / Period Label.
+
+Response body (what your frontend renders)
+{
+  "success": true,
+  "period": "FY2024",
+  "generated_at": "2026-07-19T12:57:00.000Z",
+  "dashboard_url": "https://docs.google.com/spreadsheets/d/1sWK.../edit",
+  "report": {
+    "performance_summary": "string (multi-paragraph)",
+    "financial_position": "string (multi-paragraph)",
+    "key_metrics": [
+      { "metric": "Current Ratio", "value": "1.7", "trend": "declining",
+        "benchmark": "> 1.5", "commentary": "..." }
+    ],
+    "cash_flow_forecast": [
+      { "period": "Next Year", "projected_inflow": "1400000",
+        "projected_outflow": "1300000", "net_cash_flow": "100000",
+        "ending_balance": "230000", "commentary": "revenue ~12%/yr..." }
+    ],
+    "risks": [                                  // exactly 3
+      { "risk": "...", "severity": "High", "likelihood": "High", "mitigation": "..." }
+    ],
+    "opportunities": [                          // exactly 3  (NEW)
+      { "opportunity": "...", "potential_impact": "High", "rationale": "..." }
+    ],
+    "recommendations": [                        // Profitability, Liquidity, Leverage, Cash Flow (NEW)
+      { "area": "Profitability", "recommendation": "...", "priority": "High", "justification": "cites metrics" }
+    ]
+  }
+}
+Example frontend call
+async function analyze(payload) {
+  const res = await fetch(
+    "https://talaosman771.app.n8n.cloud/webhook/financial-analysis",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  const { report, dashboard_url } = await res.json();
+  return { report, dashboard_url };
+  // report.risks (3), report.opportunities (3), report.recommendations (4 areas)
+}
+A few things to flag honestly:
+
+The webhook currently has no authentication (inbound triggers default to none). If your frontend is public, tell me and I'll add an auth header/token check so this endpoint can't be called anonymously.
+All numeric fields in report come back as strings (the AI schema emits strings) — parse them client-side if you need to do math.
+The API path also writes to the Google Sheet dashboard and emails the report on every call, same as the form path. If you want the API path to only return JSON (no sheet write / email) for a lighter frontend call, I can split that out.
+I have not live-tested this end-to-end yet, so the exact AI field content is per the schema contract above but unproven against a real Gemini call. Want me to run a live test to confirm the real response shape?

@@ -1,6 +1,6 @@
-# [Project name]
+# Financial Sheet Handler
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A financial statement analysis tool — upload a spreadsheet, get an AI-powered health score and analysis via n8n, then chat with a Gemini AI assistant about the results.
 
 ## Run & Operate
 
