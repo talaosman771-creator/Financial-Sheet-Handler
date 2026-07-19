@@ -13,13 +13,15 @@ interface Props {
 
 // ── Score calculation ────────────────────────────────────────────────────────
 
-function parseMetric(v: string | number): number {
-  const s = String(v).replace(/[%x,$,\s]/g, "").trim();
+function parseMetric(v: string | number | undefined | null): number {
+  if (v === undefined || v === null) return 0;
+  const s = String(v).replace(/[%x,$\s]/g, "").trim();
   return parseFloat(s) || 0;
 }
 
 function findMetric(metrics: KeyMetric[], ...terms: string[]): number | null {
   for (const m of metrics) {
+    if (!m || !m.label) continue;
     const k = m.label.toLowerCase();
     if (terms.some(t => k.includes(t.toLowerCase()))) return parseMetric(m.value);
   }
