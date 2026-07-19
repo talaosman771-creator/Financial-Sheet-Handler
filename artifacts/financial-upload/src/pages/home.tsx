@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,10 +20,15 @@ import {
   TrendingUp,
   X,
   RefreshCw,
+  FileDown,
+  Sheet,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { FinancialCharts } from "@/components/FinancialCharts";
+import { HealthScore, calculateHealthScore, scoreColor } from "@/components/HealthScore";
+import { exportPDF } from "@/utils/exportPDF";
+import { exportExcel } from "@/utils/exportExcel";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -352,6 +357,41 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
       : String(v);
 
+  const healthResult = calculateHealthScore(financialData, data.report.key_metrics ?? []);
+
+  function handleDownloadPDF() {
+    try {
+      exportPDF({
+        period: data.period,
+        generated_at: data.generated_at,
+        email_sent_to: data.email_sent_to,
+        healthScore: healthResult.score,
+        healthLabel: healthResult.label,
+        report: data.report,
+        financialData,
+      });
+    } catch {
+      toast.error("PDF generation failed. Please try again.");
+    }
+  }
+
+  function handleExportExcel() {
+    try {
+      exportExcel({
+        period: data.period,
+        generated_at: data.generated_at,
+        email_sent_to: data.email_sent_to,
+        dashboard_url: data.dashboard_url,
+        healthScore: healthResult.score,
+        healthLabel: healthResult.label,
+        report: data.report,
+        financialData,
+      });
+    } catch {
+      toast.error("Excel export failed. Please try again.");
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -359,17 +399,40 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       transition={{ duration: 0.35 }}
       className="space-y-6"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
-          <CheckCircle2 className="w-5 h-5" style={{ color: '#4ade80' }} />
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+            <CheckCircle2 className="w-5 h-5" style={{ color: '#4ade80' }} />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Analysis Complete</h2>
+            <p className="text-xs text-muted-foreground">
+              Period: {data.period} &middot; {new Date(data.generated_at).toLocaleString()}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Analysis Complete</h2>
-          <p className="text-xs text-muted-foreground">
-            Period: {data.period} &middot; {new Date(data.generated_at).toLocaleString()}
-          </p>
+        {/* Download buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleDownloadPDF}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 transition-all hover:opacity-80"
+            style={{ background: 'rgba(212,146,15,0.14)', border: '1px solid rgba(212,146,15,0.35)', color: '#d4920f' }}
+          >
+            <FileDown className="w-3.5 h-3.5" />PDF
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 transition-all hover:opacity-80"
+            style={{ background: 'rgba(45,212,191,0.1)', border: '1px solid rgba(45,212,191,0.25)', color: '#2dd4bf' }}
+          >
+            <Sheet className="w-3.5 h-3.5" />Excel
+          </button>
         </div>
       </div>
+
+      {/* Health Score */}
+      <HealthScore financialData={financialData} keyMetrics={data.report.key_metrics ?? []} />
 
       <div className="flex flex-wrap gap-2">
         {data.email_sent_to && (
@@ -483,9 +546,23 @@ function ModeTab({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Analysis progress steps ───────────────────────────────────────────────────
+
+const ANALYSIS_STEPS = [
+  { label: "Submitting financial data…",     pct: 8  },
+  { label: "AI reading statements…",         pct: 22 },
+  { label: "Calculating metrics…",           pct: 40 },
+  { label: "Generating narrative report…",   pct: 58 },
+  { label: "Writing to dashboard…",          pct: 75 },
+  { label: "Preparing email dispatch…",      pct: 90 },
+];
+
 export default function Home() {
   const [mode, setMode] = useState<InputMode>("manual");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [progressPct, setProgressPct] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("");
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [submittedFinancialData, setSubmittedFinancialData] = useState<FinancialData>({});
   const [parsedData, setParsedData] = useState<FinancialData | null>(null);
@@ -546,6 +623,17 @@ export default function Home() {
     }
 
     setIsSubmitting(true);
+    setProgressPct(0);
+    setProgressLabel(ANALYSIS_STEPS[0].label);
+
+    // Advance through fake progress steps while waiting for the API
+    let stepIdx = 0;
+    progressTimer.current = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, ANALYSIS_STEPS.length - 1);
+      setProgressPct(ANALYSIS_STEPS[stepIdx].pct);
+      setProgressLabel(ANALYSIS_STEPS[stepIdx].label);
+    }, 2800);
+
     try {
       const res = await fetch(WEBHOOK_URL, {
         method: "POST",
@@ -560,9 +648,14 @@ export default function Home() {
       if (!res.ok) throw new Error(`Webhook returned ${res.status}: ${res.statusText}`);
       const data: ReportResponse = await res.json();
       if (!data.success) throw new Error("Webhook returned success: false");
+
+      clearInterval(progressTimer.current!);
+      setProgressPct(100);
+      setProgressLabel("Complete!");
       setSubmittedFinancialData(financialData);
-      setReport(data);
+      setTimeout(() => setReport(data), 400);
     } catch (err) {
+      clearInterval(progressTimer.current!);
       toast.error(err instanceof Error ? err.message : "Submission failed. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -751,13 +844,55 @@ export default function Home() {
                       )}
                     </AnimatePresence>
 
-                    <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                    <AnimatePresence mode="wait">
                       {isSubmitting ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</>
+                        <motion.div
+                          key="progress"
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="space-y-3"
+                        >
+                          {/* Step label + percentage */}
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground truncate pr-2">{progressLabel}</p>
+                            <p className="text-xs font-bold shrink-0" style={{ color: '#d4920f' }}>{progressPct}%</p>
+                          </div>
+                          {/* Track */}
+                          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                            <motion.div
+                              className="h-full rounded-full"
+                              style={{ background: 'linear-gradient(90deg, hsl(38,88%,35%), hsl(38,88%,55%))' }}
+                              animate={{ width: `${progressPct}%` }}
+                              transition={{ duration: 0.7, ease: "easeOut" }}
+                            />
+                          </div>
+                          {/* Step dots */}
+                          <div className="flex items-center gap-1 justify-center">
+                            {ANALYSIS_STEPS.map((s, i) => (
+                              <div
+                                key={i}
+                                className="rounded-full transition-all duration-500"
+                                style={{
+                                  width: progressPct >= s.pct ? 8 : 5,
+                                  height: progressPct >= s.pct ? 8 : 5,
+                                  background: progressPct >= s.pct ? '#d4920f' : 'rgba(255,255,255,0.18)',
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <Button type="button" className="w-full" size="lg" disabled>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />AI Analysing…
+                          </Button>
+                        </motion.div>
                       ) : (
-                        "Generate Analysis"
+                        <motion.div key="submit" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <Button type="submit" className="w-full" size="lg">
+                            Generate Analysis
+                          </Button>
+                        </motion.div>
                       )}
-                    </Button>
+                    </AnimatePresence>
                   </form>
                 </Form>
               </motion.div>
