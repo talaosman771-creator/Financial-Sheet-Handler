@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-const N8N_WEBHOOK_URL = "https://proojectta.app.n8n.cloud/webhook/financial-analysis";
+const N8N_WEBHOOK_URL = "https://talaosman771.app.n8n.cloud/webhook/financial-analysis";
 
 router.post("/analyze", async (req, res): Promise<void> => {
   try {

@@ -22,6 +22,8 @@ import {
   RefreshCw,
   FileDown,
   Sheet,
+  Lightbulb,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,19 +57,62 @@ type InputMode = "manual" | "file" | "sheet";
 
 type FinancialData = Record<string, Record<string, number>>;
 
+interface KeyMetricRaw {
+  metric: string;      // API field name
+  label?: string;      // fallback if already normalised
+  value: string | number;
+  trend?: string;
+  benchmark?: string;
+  commentary?: string;
+  note?: string;
+}
+
+interface CashFlowForecast {
+  period: string;
+  projected_inflow: string | number;
+  projected_outflow: string | number;
+  net_cash_flow: string | number;
+  ending_balance: string | number;
+  commentary?: string;
+}
+
+interface Opportunity {
+  opportunity: string;
+  potential_impact?: string;
+  rationale?: string;
+}
+
+interface Recommendation {
+  area: string;
+  recommendation: string;
+  priority?: string;
+  justification?: string;
+}
+
 interface ReportResponse {
   success: boolean;
   period: string;
   generated_at: string;
-  email_sent_to: string;
-  dashboard_url: string;
+  email_sent_to?: string;
+  dashboard_url?: string;
   report: {
     performance_summary: string;
     financial_position: string;
-    key_metrics: Array<{ label: string; value: string | number; note?: string }>;
-    cash_flow_forecast: Array<{ period: string; amount: string | number; note?: string }>;
-    risks: Array<{ risk: string; severity?: string } | string>;
+    key_metrics: KeyMetricRaw[];
+    cash_flow_forecast?: CashFlowForecast[];
+    risks: Array<{ risk: string; severity?: string; likelihood?: string; mitigation?: string } | string>;
+    opportunities?: Opportunity[];
+    recommendations?: Recommendation[];
   };
+}
+
+/** Normalise the API's key_metrics (field is `metric`) into the shape the rest of the UI expects (`label`) */
+function normaliseKeyMetrics(raw: KeyMetricRaw[]): Array<{ label: string; value: string | number; note?: string }> {
+  return (raw ?? []).map(m => ({
+    label: m.metric ?? m.label ?? "",
+    value: m.value,
+    note: m.commentary ?? m.benchmark ?? m.note,
+  }));
 }
 
 const baseSchema = z.object({
@@ -359,17 +404,18 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
       : String(v);
 
-  const healthResult = calculateHealthScore(financialData, data.report.key_metrics ?? []);
+  const normalisedMetrics = normaliseKeyMetrics(data.report.key_metrics ?? []);
+  const healthResult = calculateHealthScore(financialData, normalisedMetrics);
 
   function handleDownloadPDF() {
     try {
       exportPDF({
         period: data.period,
         generated_at: data.generated_at,
-        email_sent_to: data.email_sent_to,
+        email_sent_to: data.email_sent_to ?? "",
         healthScore: healthResult.score,
         healthLabel: healthResult.label,
-        report: data.report,
+        report: { ...data.report, key_metrics: normalisedMetrics },
         financialData,
       });
     } catch {
@@ -382,11 +428,11 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       exportExcel({
         period: data.period,
         generated_at: data.generated_at,
-        email_sent_to: data.email_sent_to,
-        dashboard_url: data.dashboard_url,
+        email_sent_to: data.email_sent_to ?? "",
+        dashboard_url: data.dashboard_url ?? "",
         healthScore: healthResult.score,
         healthLabel: healthResult.label,
-        report: data.report,
+        report: { ...data.report, key_metrics: normalisedMetrics },
         financialData,
       });
     } catch {
@@ -434,7 +480,7 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       </div>
 
       {/* Health Score */}
-      <HealthScore financialData={financialData} keyMetrics={data.report.key_metrics ?? []} />
+      <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} />
 
       <div className="flex flex-wrap gap-2">
         {data.email_sent_to && (
@@ -465,31 +511,26 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
         <p className="text-sm text-muted-foreground leading-relaxed">{data.report.financial_position}</p>
       </div>
 
-      {data.report.key_metrics?.length > 0 && (
+      {normalisedMetrics.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><BarChart3 className="w-3.5 h-3.5" />Key Metrics</div>
           <div className="grid grid-cols-2 gap-2">
-            {data.report.key_metrics.map((m, i) => {
+            {normalisedMetrics.map((m, i) => {
               const meta = m?.label ? getRatioMeta(m.label) : null;
               return (
                 <div key={i} className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  {/* Ratio name */}
                   <p className="text-xs font-semibold text-foreground truncate">{m.label}</p>
-                  {/* What it measures */}
                   {meta && (
                     <p className="text-[10px] leading-snug" style={{ color: 'rgba(200,215,207,0.5)' }}>
                       {meta.description}
                     </p>
                   )}
-                  {/* The value */}
                   <p className="text-sm font-bold text-accent mt-1">{fmt(m.value)}</p>
-                  {/* Benchmark verdict */}
                   {meta && (
                     <p className="text-[10px] font-medium" style={{ color: 'rgba(212,146,15,0.85)' }}>
                       {meta.benchmark(parseRatioValue(m.value))}
                     </p>
                   )}
-                  {/* Fallback note */}
                   {!meta && m.note && (
                     <p className="text-[10px] text-muted-foreground">{m.note}</p>
                   )}
@@ -507,7 +548,7 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
         </div>
         <FinancialCharts
           financialData={financialData}
-          keyMetrics={data.report.key_metrics ?? []}
+          keyMetrics={normalisedMetrics}
           period={data.period}
         />
       </div>
@@ -515,18 +556,91 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       {data.report.risks?.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><AlertTriangle className="w-3.5 h-3.5" />Risk Factors</div>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {data.report.risks.map((r, i) => {
               const text = typeof r === "string" ? r : r.risk;
               const sev = typeof r === "object" ? r.severity : undefined;
+              const mitigation = typeof r === "object" ? r.mitigation : undefined;
               return (
-                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                  <span>{text}{sev && <span className="ml-1.5 text-[10px] rounded-full px-2 py-0.5 font-medium text-accent" style={{ background: 'rgba(212,146,15,0.12)' }}>{sev}</span>}</span>
+                <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171', marginTop: 5 }} />
+                    <span className="text-foreground font-medium flex-1">{text}
+                      {sev && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>{sev}</span>}
+                    </span>
+                  </div>
+                  {mitigation && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{mitigation}</p>}
                 </li>
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {data.report.opportunities?.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><Lightbulb className="w-3.5 h-3.5" />Opportunities</div>
+          <ul className="space-y-2">
+            {data.report.opportunities.map((o, i) => (
+              <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.14)' }}>
+                <div className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80', marginTop: 5 }} />
+                  <span className="text-foreground font-medium flex-1">{o.opportunity}
+                    {o.potential_impact && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}>{o.potential_impact}</span>}
+                  </span>
+                </div>
+                {o.rationale && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{o.rationale}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {data.report.recommendations?.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><ListChecks className="w-3.5 h-3.5" />Recommendations</div>
+          <ul className="space-y-2">
+            {data.report.recommendations.map((rec, i) => (
+              <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.14)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: '#60a5fa' }}>{rec.area}</span>
+                  {rec.priority && <span className="text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>{rec.priority}</span>}
+                </div>
+                <p className="text-foreground font-medium ml-0">{rec.recommendation}</p>
+                {rec.justification && <p className="mt-1 text-muted-foreground leading-relaxed">{rec.justification}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {data.report.cash_flow_forecast?.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><Activity className="w-3.5 h-3.5" />Cash Flow Forecast</div>
+          <div className="space-y-2">
+            {data.report.cash_flow_forecast.map((cf, i) => {
+              const inflow  = parseFloat(String(cf.projected_inflow).replace(/[,$]/g, "")) || 0;
+              const outflow = parseFloat(String(cf.projected_outflow).replace(/[,$]/g, "")) || 0;
+              const net     = parseFloat(String(cf.net_cash_flow).replace(/[,$,-]/g, "")) || 0;
+              const isPositive = inflow >= outflow;
+              return (
+                <div key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-foreground">{cf.period}</span>
+                    <span className="font-bold text-sm" style={{ color: isPositive ? '#4ade80' : '#f87171' }}>
+                      {isPositive ? '+' : ''}{fmt(net)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
+                    <span>Inflow: <span className="text-foreground font-medium">{fmt(inflow)}</span></span>
+                    <span>Outflow: <span className="text-foreground font-medium">{fmt(outflow)}</span></span>
+                    {cf.ending_balance && <span className="col-span-2">Ending balance: <span className="text-foreground font-medium">{fmt(parseFloat(String(cf.ending_balance).replace(/[,$]/g, "")) || 0)}</span></span>}
+                  </div>
+                  {cf.commentary && <p className="mt-1.5 text-muted-foreground leading-relaxed">{cf.commentary}</p>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
