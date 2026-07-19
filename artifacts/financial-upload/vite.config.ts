@@ -69,6 +69,18 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:8080',
+        changeOrigin: true,
+        // Chat responses stream via SSE — disable proxy buffering.
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+          });
+        },
+      },
+    },
     fs: {
       strict: true,
     },

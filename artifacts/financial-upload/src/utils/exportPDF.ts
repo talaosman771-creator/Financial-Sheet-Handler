@@ -97,12 +97,6 @@ export function exportPDF(data: ReportData) {
   setFill(doc, CARD);
   doc.rect(0, 0, PW, 68, "F");
 
-  // Subtle grid lines
-  setDraw(doc, [255, 255, 255]);
-  doc.setLineWidth(0.05);
-  for (let x = 0; x < PW; x += 10) doc.line(x, 0, x, 68);
-  for (let y = 0; y < 68; y += 10) doc.line(0, y, PW, y);
-
   // ── Amber top rule ──
   setFill(doc, AMBER);
   doc.rect(0, 0, PW, 1.5, "F");

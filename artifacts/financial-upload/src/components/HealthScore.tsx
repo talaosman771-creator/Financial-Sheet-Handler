@@ -1,5 +1,12 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import {
+  scoreRatio,
+  metricKeyFromLabel,
+  DEFAULT_INDUSTRY,
+  type IndustryId,
+  type MetricKey,
+} from "@/utils/industryBenchmarks";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +16,7 @@ interface KeyMetric { label: string; value: string | number; note?: string; }
 interface Props {
   financialData: FinancialData;
   keyMetrics: KeyMetric[];
+  industry?: IndustryId;
 }
 
 // ── Score calculation ────────────────────────────────────────────────────────
@@ -43,7 +51,19 @@ export interface ScoreResult {
   breakdown: { name: string; points: number; max: number; note: string }[];
 }
 
-export function calculateHealthScore(financialData: FinancialData, keyMetrics: KeyMetric[]): ScoreResult {
+export interface RawFinancials {
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  netIncome: number;
+  currentAssets: number;
+  currentLiab: number;
+  totalLiab: number;
+  equity: number;
+}
+
+/** Pull the headline figures out of the raw statements, tolerant of naming variants. */
+export function extractRawFinancials(financialData: FinancialData): RawFinancials {
   const incomeKey = Object.keys(financialData).find(k =>
     k.toLowerCase().includes("income") || k.toLowerCase().includes("p&l") || k.toLowerCase().includes("profit")
   );
@@ -63,74 +83,69 @@ export function calculateHealthScore(financialData: FinancialData, keyMetrics: K
   const totalLiab     = findValue(balance, "total liabil");
   const equity        = findValue(balance, "equity", "net worth");
 
-  const breakdown: ScoreResult["breakdown"] = [];
+  return { revenue, cogs, grossProfit, netIncome, currentAssets, currentLiab, totalLiab, equity };
+}
 
-  // ── 1. Gross Margin (20pts) ──
-  const gmPct = findMetric(keyMetrics, "gross margin") ?? (revenue > 0 ? (grossProfit / revenue) * 100 : null);
-  let gmPts = 0;
-  if (gmPct !== null) {
-    if (gmPct >= 50) gmPts = 20;
-    else if (gmPct >= 35) gmPts = 16;
-    else if (gmPct >= 20) gmPts = 12;
-    else if (gmPct >= 10) gmPts = 7;
-    else gmPts = 3;
-    breakdown.push({ name: "Gross Margin", points: gmPts, max: 20, note: `${gmPct.toFixed(1)}%` });
-  }
+/** Derive each scoreable metric's numeric value from key_metrics (preferred) or raw statements. */
+export function deriveMetricValues(financialData: FinancialData, keyMetrics: KeyMetric[]): Partial<Record<MetricKey, number>> {
+  const { revenue, grossProfit, netIncome, currentAssets, currentLiab, totalLiab, equity } =
+    extractRawFinancials(financialData);
 
-  // ── 2. Net Margin (20pts) ──
-  const nmPct = findMetric(keyMetrics, "net margin", "profit margin") ?? (revenue > 0 ? (netIncome / revenue) * 100 : null);
-  let nmPts = 0;
-  if (nmPct !== null) {
-    if (nmPct >= 20) nmPts = 20;
-    else if (nmPct >= 12) nmPts = 16;
-    else if (nmPct >= 7) nmPts = 12;
-    else if (nmPct >= 3) nmPts = 7;
-    else if (nmPct >= 0) nmPts = 3;
-    else nmPts = 0;
-    breakdown.push({ name: "Net Margin", points: nmPts, max: 20, note: `${nmPct.toFixed(1)}%` });
-  }
+  const values: Partial<Record<MetricKey, number>> = {};
 
-  // ── 3. Current Ratio (20pts) ──
+  const gm = findMetric(keyMetrics, "gross margin") ?? (revenue > 0 ? (grossProfit / revenue) * 100 : null);
+  if (gm !== null) values.grossMargin = gm;
+
+  const nm = findMetric(keyMetrics, "net margin", "profit margin") ?? (revenue > 0 ? (netIncome / revenue) * 100 : null);
+  if (nm !== null) values.netMargin = nm;
+
   const cr = findMetric(keyMetrics, "current ratio") ?? (currentLiab > 0 ? currentAssets / currentLiab : null);
-  let crPts = 0;
-  if (cr !== null) {
-    if (cr >= 2.5) crPts = 20;
-    else if (cr >= 2.0) crPts = 17;
-    else if (cr >= 1.5) crPts = 13;
-    else if (cr >= 1.0) crPts = 8;
-    else crPts = 2;
-    breakdown.push({ name: "Current Ratio", points: crPts, max: 20, note: `${cr.toFixed(2)}x` });
-  }
+  if (cr !== null) values.currentRatio = cr;
 
-  // ── 4. Debt-to-Equity (20pts) ──
   const de = findMetric(keyMetrics, "debt to equity", "d/e", "leverage") ??
     (equity > 0 && totalLiab > 0 ? totalLiab / equity : null);
-  let dePts = 0;
-  if (de !== null) {
-    if (de <= 0.5) dePts = 20;
-    else if (de <= 1.0) dePts = 16;
-    else if (de <= 1.5) dePts = 11;
-    else if (de <= 2.5) dePts = 6;
-    else dePts = 2;
-    breakdown.push({ name: "Debt / Equity", points: dePts, max: 20, note: `${de.toFixed(2)}x` });
+  if (de !== null) values.debtToEquity = de;
+
+  const roe = findMetric(keyMetrics, "return on equity", "roe");
+  if (roe !== null) values.roe = roe;
+  const roa = findMetric(keyMetrics, "return on asset", "roa");
+  if (roa !== null) values.roa = roa;
+
+  // Any other scoreable metric the API returned that we didn't derive above.
+  for (const m of keyMetrics) {
+    const key = m?.label ? metricKeyFromLabel(m.label) : null;
+    if (key && values[key] === undefined) {
+      const n = parseMetric(m.value);
+      if (n !== 0 || String(m.value).trim().startsWith("0")) values[key] = n;
+    }
   }
 
-  // ── 5. Return on Equity / profitability (20pts) ──
-  const roe = findMetric(keyMetrics, "return on equity", "roe", "return on asset", "roa");
-  let roePts = 0;
-  if (roe !== null) {
-    if (roe >= 20) roePts = 20;
-    else if (roe >= 12) roePts = 16;
-    else if (roe >= 8) roePts = 12;
-    else if (roe >= 4) roePts = 7;
-    else if (roe >= 0) roePts = 3;
-    else roePts = 0;
-    breakdown.push({ name: "Return on Equity", points: roePts, max: 20, note: `${roe.toFixed(1)}%` });
-  }
+  return { revenue, netIncome, ...values } as Partial<Record<MetricKey, number>> & { revenue: number; netIncome: number };
+}
 
-  // ── Normalise to available max ──
-  const totalPoints = breakdown.reduce((s, b) => s + b.points, 0);
-  const totalMax    = breakdown.reduce((s, b) => s + b.max, 0);
+export function calculateHealthScore(
+  financialData: FinancialData,
+  keyMetrics: KeyMetric[],
+  industry: IndustryId = DEFAULT_INDUSTRY
+): ScoreResult {
+  const derived = deriveMetricValues(financialData, keyMetrics) as Partial<Record<MetricKey, number>> & { revenue: number; netIncome: number };
+  const { revenue, netIncome } = derived;
+
+  const breakdown: ScoreResult["breakdown"] = [];
+  let totalPoints = 0;
+  let totalMax = 0;
+
+  const unitOf = (u: string, v: number) => u === "%" ? `${v.toFixed(1)}%` : u === "days" ? `${Math.round(v)}d` : `${v.toFixed(2)}x`;
+
+  for (const key of Object.keys(derived) as MetricKey[]) {
+    const value = derived[key];
+    if (value === undefined) continue;
+    const s = scoreRatio(key, value, industry);
+    if (!s) continue;
+    totalPoints += s.points;
+    totalMax += s.weight;
+    breakdown.push({ name: s.label, points: Math.round(s.points), max: s.weight, note: `${unitOf(s.unit, value)} · ${s.status}` });
+  }
 
   let score = totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 50;
 
@@ -163,8 +178,8 @@ export function scoreColor(score: number): string {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function HealthScore({ financialData, keyMetrics }: Props) {
-  const result   = calculateHealthScore(financialData, keyMetrics);
+export function HealthScore({ financialData, keyMetrics, industry }: Props) {
+  const result   = calculateHealthScore(financialData, keyMetrics, industry);
   const color    = scoreColor(result.score);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

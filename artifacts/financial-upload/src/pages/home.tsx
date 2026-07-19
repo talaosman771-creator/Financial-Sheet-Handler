@@ -33,7 +33,29 @@ import { FinancialChatbot } from "@/components/FinancialChatbot";
 import { exportPDF } from "@/utils/exportPDF";
 import { exportExcel } from "@/utils/exportExcel";
 import { getRatioMeta, parseRatioValue } from "@/utils/ratioMeta";
+import {
+  INDUSTRIES,
+  DEFAULT_INDUSTRY,
+  scoreRatio,
+  metricKeyFromLabel,
+  tierColor,
+  getIndustryLabel,
+  type IndustryId,
+} from "@/utils/industryBenchmarks";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  computeRedFlags,
+  flagsHeadline,
+  severityColor,
+  type RedFlag,
+} from "@/utils/redFlags";
 import {
   Form,
   FormControl,
@@ -117,6 +139,7 @@ function normaliseKeyMetrics(raw: KeyMetricRaw[]): Array<{ label: string; value:
 
 const baseSchema = z.object({
   periodLabel: z.string().min(1, "Reporting period is required (e.g. Q2 2026)"),
+  industry: z.string().min(1, "Pick your industry so benchmarks match your sector"),
   notes: z.string().optional(),
 });
 
@@ -446,26 +469,43 @@ function FinancialTable({ data }: { data: FinancialData }) {
   );
 }
 
-// Key ratios with benchmark/status as a table
-function RatioTable({ metrics }: { metrics: Array<{ label: string; value: string | number; note?: string }> }) {
+// Key ratios scored against the selected industry's norms.
+function RatioTable({ metrics, industry }: { metrics: Array<{ label: string; value: string | number; note?: string }>; industry: IndustryId }) {
   return (
     <table className="w-full text-[13px]">
       <thead>
         <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
           <th className="text-left font-semibold pb-2">Metric</th>
           <th className="text-right font-semibold pb-2">Value</th>
-          <th className="text-right font-semibold pb-2">Benchmark</th>
+          <th className="text-left font-semibold pb-2 ps-4">vs {getIndustryLabel(industry)}</th>
         </tr>
       </thead>
       <tbody>
         {metrics.map((m, i) => {
+          const key = m.label ? metricKeyFromLabel(m.label) : null;
+          const score = key ? scoreRatio(key, parseRatioValue(m.value), industry) : null;
           const meta = m.label ? getRatioMeta(m.label) : null;
           return (
             <tr key={i} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-              <td className="py-2 text-muted-foreground">{m.label}</td>
-              <td className="py-2 text-right font-semibold text-accent tabular-nums">{String(m.value)}</td>
-              <td className="py-2 text-right text-[11px]" style={{ color: 'rgba(212,146,15,0.85)' }}>
-                {meta ? meta.benchmark(parseRatioValue(m.value)) : (m.note ?? "—")}
+              <td className="py-2 text-muted-foreground align-middle">{m.label}</td>
+              <td className="py-2 text-right font-semibold text-accent tabular-nums align-middle">{String(m.value)}</td>
+              <td className="py-2 ps-4 align-middle">
+                {score ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold" style={{ color: tierColor(score.tier) }}>{score.status}</span>
+                      <span className="text-[10px] tabular-nums text-muted-foreground">{score.vsIndustry}</span>
+                    </div>
+                    {/* Sector percentile bar */}
+                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${score.percentile}%`, background: tierColor(score.tier) }} />
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-[11px]" style={{ color: 'rgba(212,146,15,0.85)' }}>
+                    {meta ? meta.benchmark(parseRatioValue(m.value)) : (m.note ?? "—")}
+                  </span>
+                )}
               </td>
             </tr>
           );
@@ -475,14 +515,81 @@ function RatioTable({ metrics }: { metrics: Array<{ label: string; value: string
   );
 }
 
-function ReportView({ data, financialData, onReset }: { data: ReportResponse; financialData: FinancialData; onReset: () => void }) {
+// Red flags + prioritized action plan, SME-facing.
+function RedFlagsPanel({ flags }: { flags: RedFlag[] }) {
+  const headline = flagsHeadline(flags);
+  return (
+    <Panel>
+      <SectionLabel
+        icon={<AlertTriangle className="w-3.5 h-3.5" />}
+        hint={`${flags.length} flag${flags.length === 1 ? "" : "s"}`}
+      >
+        Red Flags &amp; Action Plan
+      </SectionLabel>
+
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className="text-sm font-semibold px-2.5 py-0.5 rounded-full"
+          style={{ color: severityColor[headline.tone], background: `${severityColor[headline.tone]}1a` }}
+        >
+          {headline.label}
+        </span>
+      </div>
+
+      {flags.length === 0 ? (
+        <div className="flex items-center gap-2.5 text-sm text-muted-foreground rounded-xl px-3 py-3" style={{ background: 'rgba(134,195,74,0.08)', border: '1px solid rgba(134,195,74,0.2)' }}>
+          <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#86c34a' }} />
+          Nothing urgent stands out — your ratios sit at or above the norm for your sector.
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {flags.map((f, i) => (
+            <motion.div
+              key={f.id}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.3 }}
+              className="rounded-xl px-3.5 py-3"
+              style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid ${severityColor[f.severity]}33`, borderLeft: `3px solid ${severityColor[f.severity]}` }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 mt-0.5"
+                    style={{ color: severityColor[f.severity], background: `${severityColor[f.severity]}1a` }}
+                  >
+                    {f.severity}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground leading-snug">{f.title}</p>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed mt-0.5">{f.detail}</p>
+                    <p className="text-[12px] leading-relaxed mt-1.5 flex items-start gap-1.5" style={{ color: 'rgba(232,237,233,0.85)' }}>
+                      <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#e8aa2a' }} />
+                      <span><span className="font-semibold">Do this:</span> {f.action}</span>
+                    </p>
+                  </div>
+                </div>
+                {f.metric && (
+                  <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">{f.metric}</span>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ReportView({ data, financialData, industry, onReset }: { data: ReportResponse; financialData: FinancialData; industry: IndustryId; onReset: () => void }) {
   const fmt = (v: string | number) =>
     typeof v === "number"
       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
       : String(v);
 
   const normalisedMetrics = normaliseKeyMetrics(data.report.key_metrics ?? []);
-  const healthResult = calculateHealthScore(financialData, normalisedMetrics);
+  const healthResult = calculateHealthScore(financialData, normalisedMetrics, industry);
+  const redFlags = computeRedFlags(financialData, normalisedMetrics, industry);
 
   function handleDownloadPDF() {
     try {
@@ -585,12 +692,15 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       {/* Row 1 — Free-standing KPI indicators (no container) */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-6 items-center py-2">
         <div className="col-span-2 lg:col-span-2">
-          <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} />
+          <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} industry={industry} />
         </div>
         {normalisedMetrics.slice(0, 4).map((m, i) => (
           <GaugeItem key={i} metric={m} index={i} />
         ))}
       </div>
+
+      {/* Row 1.5 — Red flags & action plan (SME priority) */}
+      <RedFlagsPanel flags={redFlags} />
 
       {/* Row 2 — Condensed AI summary */}
       <Panel>
@@ -625,8 +735,8 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
         </Panel>
         {normalisedMetrics.length > 0 && (
           <Panel>
-            <SectionLabel icon={<ListChecks className="w-3.5 h-3.5" />}>Ratio Analysis</SectionLabel>
-            <RatioTable metrics={normalisedMetrics} />
+            <SectionLabel icon={<ListChecks className="w-3.5 h-3.5" />} hint={`vs ${getIndustryLabel(industry)} norms`}>Ratio Analysis</SectionLabel>
+            <RatioTable metrics={normalisedMetrics} industry={industry} />
           </Panel>
         )}
       </div>
@@ -861,12 +971,13 @@ export default function Home() {
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [report, setReport] = useState<ReportResponse | null>(PREVIEW ? SAMPLE_REPORT : null);
   const [submittedFinancialData, setSubmittedFinancialData] = useState<FinancialData>(PREVIEW ? SAMPLE_FINANCIAL_DATA : {});
+  const [submittedIndustry, setSubmittedIndustry] = useState<IndustryId>(DEFAULT_INDUSTRY);
   const [parsedData, setParsedData] = useState<FinancialData | null>(null);
   const [parsedFileName, setParsedFileName] = useState<string | null>(null);
 
   const form = useForm<BaseValues>({
     resolver: zodResolver(baseSchema),
-    defaultValues: { periodLabel: "", notes: "" },
+    defaultValues: { periodLabel: "", industry: DEFAULT_INDUSTRY, notes: "" },
   });
 
   // Manual entry financial data (same as before — kept minimal here)
@@ -936,6 +1047,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           periodLabel: values.periodLabel,
+          industry: values.industry,
+          industryLabel: getIndustryLabel(values.industry as IndustryId),
           notes: values.notes || undefined,
           financialData,
         }),
@@ -949,6 +1062,7 @@ export default function Home() {
       setProgressPct(100);
       setProgressLabel("Complete!");
       setSubmittedFinancialData(financialData);
+      setSubmittedIndustry(values.industry as IndustryId);
       setTimeout(() => setReport(data), 400);
     } catch (err) {
       clearInterval(progressTimer.current!);
@@ -962,7 +1076,7 @@ export default function Home() {
     setReport(null);
     setParsedData(null);
     setParsedFileName(null);
-    form.reset({ periodLabel: "", notes: "" });
+    form.reset({ periodLabel: "", industry: DEFAULT_INDUSTRY, notes: "" });
     setMode("manual");
   }
 
@@ -1013,7 +1127,7 @@ export default function Home() {
         {/* Form card (narrow) / Dashboard (wide) */}
         <AnimatePresence mode="wait">
           {report ? (
-            <ReportView key="report" data={report} financialData={submittedFinancialData} onReset={handleReset} />
+            <ReportView key="report" data={report} financialData={submittedFinancialData} industry={submittedIndustry} onReset={handleReset} />
           ) : (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-card border border-card-border rounded-2xl p-6 md:p-8 shadow-2xl" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
                 <Form {...form}>
@@ -1030,6 +1144,38 @@ export default function Home() {
                             <FormControl>
                               <Input placeholder="e.g. Q2 2026" {...field} disabled={isSubmitting} />
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="industry"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Industry</FormLabel>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              disabled={isSubmitting}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select your industry" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {INDUSTRIES.map(ind => (
+                                  <SelectItem key={ind.id} value={ind.id}>
+                                    <span className="font-medium">{ind.label}</span>
+                                    <span className="text-muted-foreground text-xs ms-2">{ind.blurb}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Ratios are scored against norms for your sector — not generic averages.
+                            </p>
                             <FormMessage />
                           </FormItem>
                         )}
