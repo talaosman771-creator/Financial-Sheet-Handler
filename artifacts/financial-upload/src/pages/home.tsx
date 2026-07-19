@@ -27,6 +27,7 @@ import { toast } from "sonner";
 
 import { FinancialCharts } from "@/components/FinancialCharts";
 import { HealthScore, calculateHealthScore, scoreColor } from "@/components/HealthScore";
+import { FinancialChatbot } from "@/components/FinancialChatbot";
 import { exportPDF } from "@/utils/exportPDF";
 import { exportExcel } from "@/utils/exportExcel";
 import { getRatioMeta, parseRatioValue } from "@/utils/ratioMeta";
