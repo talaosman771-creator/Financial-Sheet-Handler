@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { FinancialCharts } from "@/components/FinancialCharts";
+import { FinancialCharts, GaugeItem } from "@/components/FinancialCharts";
 import { HealthScore, calculateHealthScore, scoreColor } from "@/components/HealthScore";
 import { FinancialChatbot } from "@/components/FinancialChatbot";
 import { exportPDF } from "@/utils/exportPDF";
@@ -398,6 +398,83 @@ function GoogleSheetInput({
 
 // ── Report View ───────────────────────────────────────────────────────────────
 
+// Dashboard panel + section label primitives
+function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl p-5 ${className}`}
+      style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.11)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ icon, children, hint }: { icon: React.ReactNode; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2 text-[11px] font-bold tracking-widest uppercase text-accent">
+        {icon}
+        {children}
+      </div>
+      {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
+    </div>
+  );
+}
+
+// Raw financial line items as a table
+function FinancialTable({ data }: { data: FinancialData }) {
+  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  return (
+    <div className="space-y-4">
+      {Object.entries(data).map(([section, rows]) => (
+        <div key={section}>
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(212,146,15,0.85)' }}>{section}</p>
+          <table className="w-full text-[13px]">
+            <tbody>
+              {Object.entries(rows).map(([label, val], i) => (
+                <tr key={i} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                  <td className="py-1.5 text-muted-foreground">{label}</td>
+                  <td className="py-1.5 text-right font-medium text-foreground tabular-nums">{fmt(val)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Key ratios with benchmark/status as a table
+function RatioTable({ metrics }: { metrics: Array<{ label: string; value: string | number; note?: string }> }) {
+  return (
+    <table className="w-full text-[13px]">
+      <thead>
+        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <th className="text-left font-semibold pb-2">Metric</th>
+          <th className="text-right font-semibold pb-2">Value</th>
+          <th className="text-right font-semibold pb-2">Benchmark</th>
+        </tr>
+      </thead>
+      <tbody>
+        {metrics.map((m, i) => {
+          const meta = m.label ? getRatioMeta(m.label) : null;
+          return (
+            <tr key={i} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+              <td className="py-2 text-muted-foreground">{m.label}</td>
+              <td className="py-2 text-right font-semibold text-accent tabular-nums">{String(m.value)}</td>
+              <td className="py-2 text-right text-[11px]" style={{ color: 'rgba(212,146,15,0.85)' }}>
+                {meta ? meta.benchmark(parseRatioValue(m.value)) : (m.note ?? "—")}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 function ReportView({ data, financialData, onReset }: { data: ReportResponse; financialData: FinancialData; onReset: () => void }) {
   const fmt = (v: string | number) =>
     typeof v === "number"
@@ -445,22 +522,21 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="space-y-6"
+      className="space-y-4"
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
             <CheckCircle2 className="w-5 h-5" style={{ color: '#4ade80' }} />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Analysis Complete</h2>
+            <h2 className="font-serif text-xl font-semibold text-foreground leading-tight">Analysis Complete</h2>
             <p className="text-xs text-muted-foreground">
               Period: {data.period} &middot; {new Date(data.generated_at).toLocaleString()}
             </p>
           </div>
         </div>
-        {/* Download buttons */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleDownloadPDF}
@@ -476,149 +552,163 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
           >
             <Sheet className="w-3.5 h-3.5" />Excel
           </button>
+          <button
+            onClick={onReset}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 transition-all hover:opacity-80"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(232,237,233,0.9)' }}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />New
+          </button>
         </div>
       </div>
 
-      {/* Health Score */}
-      <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} />
-
-      <div className="flex flex-wrap gap-2">
-        {data.email_sent_to && (
-          <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 text-muted-foreground" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <Mail className="w-3 h-3" />
-            Emailed to {data.email_sent_to}
-          </span>
-        )}
-        {data.dashboard_url && (
-          <a href={data.dashboard_url} target="_blank" rel="noopener noreferrer">
-            <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 cursor-pointer text-accent" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.28)' }}>
-              <ExternalLink className="w-3 h-3" />
-              Open Dashboard
+      {/* Status chips */}
+      {(data.email_sent_to || data.dashboard_url) && (
+        <div className="flex flex-wrap gap-2">
+          {data.email_sent_to && (
+            <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 text-muted-foreground" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <Mail className="w-3 h-3" />
+              Emailed to {data.email_sent_to}
             </span>
-          </a>
-        )}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><TrendingUp className="w-3.5 h-3.5" />Performance Summary</div>
-        <p className="text-sm text-muted-foreground leading-relaxed">{data.report.performance_summary}</p>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><DollarSign className="w-3.5 h-3.5" />Financial Position</div>
-        <p className="text-sm text-muted-foreground leading-relaxed">{data.report.financial_position}</p>
-      </div>
-
-      {normalisedMetrics.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><BarChart3 className="w-3.5 h-3.5" />Key Metrics</div>
-          <div className="grid grid-cols-2 gap-2">
-            {normalisedMetrics.map((m, i) => {
-              const meta = m?.label ? getRatioMeta(m.label) : null;
-              return (
-                <div key={i} className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <p className="text-xs font-semibold text-foreground truncate">{m.label}</p>
-                  {meta && (
-                    <p className="text-[10px] leading-snug" style={{ color: 'rgba(200,215,207,0.5)' }}>
-                      {meta.description}
-                    </p>
-                  )}
-                  <p className="text-sm font-bold text-accent mt-1">{fmt(m.value)}</p>
-                  {meta && (
-                    <p className="text-[10px] font-medium" style={{ color: 'rgba(212,146,15,0.85)' }}>
-                      {meta.benchmark(parseRatioValue(m.value))}
-                    </p>
-                  )}
-                  {!meta && m.note && (
-                    <p className="text-[10px] text-muted-foreground">{m.note}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          )}
+          {data.dashboard_url && (
+            <a href={data.dashboard_url} target="_blank" rel="noopener noreferrer">
+              <span className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 cursor-pointer text-accent" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.28)' }}>
+                <ExternalLink className="w-3 h-3" />
+                Open Dashboard
+              </span>
+            </a>
+          )}
         </div>
       )}
 
-      {/* ── Charts ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent">
-          <BarChart3 className="w-3.5 h-3.5" />Visual Analysis
+      {/* Row 1 — Free-standing KPI indicators (no container) */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-6 items-center py-2">
+        <div className="col-span-2 lg:col-span-2">
+          <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} />
         </div>
+        {normalisedMetrics.slice(0, 4).map((m, i) => (
+          <GaugeItem key={i} metric={m} index={i} />
+        ))}
+      </div>
+
+      {/* Row 2 — Condensed AI summary */}
+      <Panel>
+        <SectionLabel icon={<TrendingUp className="w-3.5 h-3.5" />}>AI Summary</SectionLabel>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+          <div className="md:border-r md:pr-8" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(212,146,15,0.85)' }}>Performance</p>
+            <p className="text-[13px] text-muted-foreground leading-relaxed">{data.report.performance_summary}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(212,146,15,0.85)' }}>Position</p>
+            <p className="text-[13px] text-muted-foreground leading-relaxed">{data.report.financial_position}</p>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Row 3 — Charts */}
+      <Panel>
+        <SectionLabel icon={<BarChart3 className="w-3.5 h-3.5" />}>Visual Analysis</SectionLabel>
         <FinancialCharts
           financialData={financialData}
           keyMetrics={normalisedMetrics}
           period={data.period}
         />
+      </Panel>
+
+      {/* Row — Data tables (statements + ratios) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <Panel>
+          <SectionLabel icon={<FileSpreadsheet className="w-3.5 h-3.5" />}>Financial Statements</SectionLabel>
+          <FinancialTable data={financialData} />
+        </Panel>
+        {normalisedMetrics.length > 0 && (
+          <Panel>
+            <SectionLabel icon={<ListChecks className="w-3.5 h-3.5" />}>Ratio Analysis</SectionLabel>
+            <RatioTable metrics={normalisedMetrics} />
+          </Panel>
+        )}
       </div>
 
-      {data.report.risks?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><AlertTriangle className="w-3.5 h-3.5" />Risk Factors</div>
-          <ul className="space-y-2">
-            {data.report.risks.map((r, i) => {
-              const text = typeof r === "string" ? r : r.risk;
-              const sev = typeof r === "object" ? r.severity : undefined;
-              const mitigation = typeof r === "object" ? r.mitigation : undefined;
-              return (
-                <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
+      {/* Row 4 — Risks / Opportunities / Recommendations */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {data.report.risks?.length > 0 && (
+          <Panel>
+            <SectionLabel icon={<AlertTriangle className="w-3.5 h-3.5" />}>Risk Factors</SectionLabel>
+            <ul className="space-y-2">
+              {data.report.risks.map((r, i) => {
+                const text = typeof r === "string" ? r : r.risk;
+                const sev = typeof r === "object" ? r.severity : undefined;
+                const mitigation = typeof r === "object" ? r.mitigation : undefined;
+                return (
+                  <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171', marginTop: 5 }} />
+                      <span className="text-foreground font-medium flex-1">{text}
+                        {sev && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>{sev}</span>}
+                      </span>
+                    </div>
+                    {mitigation && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{mitigation}</p>}
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        )}
+
+        {(data.report.opportunities?.length ?? 0) > 0 && (
+          <Panel>
+            <SectionLabel icon={<Lightbulb className="w-3.5 h-3.5" />}>Opportunities</SectionLabel>
+            <ul className="space-y-2">
+              {data.report.opportunities?.map((o, i) => (
+                <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.14)' }}>
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171', marginTop: 5 }} />
-                    <span className="text-foreground font-medium flex-1">{text}
-                      {sev && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>{sev}</span>}
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80', marginTop: 5 }} />
+                    <span className="text-foreground font-medium flex-1">{o.opportunity}
+                      {o.potential_impact && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}>{o.potential_impact}</span>}
                     </span>
                   </div>
-                  {mitigation && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{mitigation}</p>}
+                  {o.rationale && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{o.rationale}</p>}
                 </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+              ))}
+            </ul>
+          </Panel>
+        )}
 
-      {data.report.opportunities?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><Lightbulb className="w-3.5 h-3.5" />Opportunities</div>
-          <ul className="space-y-2">
-            {data.report.opportunities.map((o, i) => (
-              <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.14)' }}>
-                <div className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80', marginTop: 5 }} />
-                  <span className="text-foreground font-medium flex-1">{o.opportunity}
-                    {o.potential_impact && <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}>{o.potential_impact}</span>}
-                  </span>
-                </div>
-                {o.rationale && <p className="mt-1.5 ml-3.5 text-muted-foreground leading-relaxed">{o.rationale}</p>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {(data.report.recommendations?.length ?? 0) > 0 && (
+          <Panel>
+            <SectionLabel icon={<ListChecks className="w-3.5 h-3.5" />}>Recommendations</SectionLabel>
+            <div className="space-y-2.5">
+              {data.report.recommendations?.map((rec, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.15 + i * 0.09, type: "spring", stiffness: 300, damping: 20 }}
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  className="rounded-2xl px-3.5 py-3 text-xs cursor-default"
+                  style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.22)', boxShadow: '0 6px 18px rgba(0,0,0,0.25)' }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: '#7cb3fb' }}>{rec.area}</span>
+                    {rec.priority && <span className="text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(96,165,250,0.18)', color: '#7cb3fb' }}>{rec.priority}</span>}
+                  </div>
+                  <p className="text-foreground font-medium ml-0">{rec.recommendation}</p>
+                  {rec.justification && <p className="mt-1 text-muted-foreground leading-relaxed">{rec.justification}</p>}
+                </motion.div>
+              ))}
+            </div>
+          </Panel>
+        )}
+      </div>
 
-      {data.report.recommendations?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><ListChecks className="w-3.5 h-3.5" />Recommendations</div>
-          <ul className="space-y-2">
-            {data.report.recommendations.map((rec, i) => (
-              <li key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.14)' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: '#60a5fa' }}>{rec.area}</span>
-                  {rec.priority && <span className="text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>{rec.priority}</span>}
-                </div>
-                <p className="text-foreground font-medium ml-0">{rec.recommendation}</p>
-                {rec.justification && <p className="mt-1 text-muted-foreground leading-relaxed">{rec.justification}</p>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {data.report.cash_flow_forecast?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><Activity className="w-3.5 h-3.5" />Cash Flow Forecast</div>
-          <div className="space-y-2">
-            {data.report.cash_flow_forecast.map((cf, i) => {
+      {/* Row 5 — Cash flow forecast */}
+      {(data.report.cash_flow_forecast?.length ?? 0) > 0 && (
+        <Panel>
+          <SectionLabel icon={<Activity className="w-3.5 h-3.5" />} hint="AI-projected · not guaranteed">Outlook &amp; Expectations</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {data.report.cash_flow_forecast?.map((cf, i) => {
               const inflow  = parseFloat(String(cf.projected_inflow).replace(/[,$]/g, "")) || 0;
               const outflow = parseFloat(String(cf.projected_outflow).replace(/[,$]/g, "")) || 0;
               const net     = parseFloat(String(cf.net_cash_flow).replace(/[,$,-]/g, "")) || 0;
@@ -627,7 +717,7 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
                 <div key={i} className="rounded-xl px-3 py-2.5 text-xs" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-foreground">{cf.period}</span>
-                    <span className="font-bold text-sm" style={{ color: isPositive ? '#4ade80' : '#f87171' }}>
+                    <span className="font-serif font-semibold text-base tabular-nums" style={{ color: isPositive ? '#4ade80' : '#f87171' }}>
                       {isPositive ? '+' : ''}{fmt(net)}
                     </span>
                   </div>
@@ -641,11 +731,22 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
               );
             })}
           </div>
-        </div>
+        </Panel>
       )}
 
-      <Separator />
-      <Button onClick={onReset} className="w-full" size="lg">Analyse Another Period</Button>
+      {/* Floating AI chat assistant — reads the full analysis context */}
+      <FinancialChatbot
+        context={{
+          period: data.period,
+          healthScore: healthResult.score,
+          healthLabel: healthResult.label,
+          performanceSummary: data.report.performance_summary,
+          financialPosition: data.report.financial_position,
+          keyMetrics: normalisedMetrics,
+          risks: data.report.risks,
+          financialData,
+        }}
+      />
     </motion.div>
   );
 }
@@ -693,14 +794,73 @@ const ANALYSIS_STEPS = [
   { label: "Preparing email dispatch…",      pct: 90 },
 ];
 
+// Dev-only: seed the results view (with the chatbot) so the full UI can be
+// previewed locally without the n8n backend. Enable via ?preview in the URL.
+const PREVIEW =
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("preview");
+
+const SAMPLE_FINANCIAL_DATA: FinancialData = {
+  "Income Statement": {
+    Revenue: 1250000,
+    "Cost of Goods Sold": 720000,
+    "Gross Profit": 530000,
+    "Operating Expenses": 310000,
+    "Net Income": 168000,
+  },
+  "Balance Sheet": {
+    "Total Current Assets": 480000,
+    "Total Current Liabilities": 210000,
+    "Total Assets": 1350000,
+    "Total Equity": 720000,
+  },
+};
+
+const SAMPLE_REPORT: ReportResponse = {
+  success: true,
+  period: "Q2 2026",
+  generated_at: "2026-07-19T12:00:00.000Z",
+  email_sent_to: "cfo@example.com",
+  report: {
+    performance_summary:
+      "Revenue grew a healthy 14% quarter-over-quarter while gross margin held steady at 42%. Net income of $168k reflects disciplined operating expense control, though marketing spend is trending up faster than revenue.",
+    financial_position:
+      "The balance sheet is solid: current assets more than double current liabilities, and equity funds over half of total assets. Liquidity is comfortable and leverage is moderate.",
+    key_metrics: [
+      { metric: "Current Ratio", value: "2.29", commentary: "Strong short-term liquidity" },
+      { metric: "Gross Margin", value: "42.4%", commentary: "Above industry average" },
+      { metric: "Net Profit Margin", value: "13.4%", commentary: "Healthy profitability" },
+      { metric: "Debt-to-Equity", value: "0.88", commentary: "Moderate leverage" },
+    ],
+    risks: [
+      { risk: "Operating expenses growing faster than revenue", severity: "Medium", mitigation: "Cap discretionary marketing until CAC payback improves." },
+      { risk: "Customer concentration — top 3 clients are 38% of revenue", severity: "High", mitigation: "Accelerate mid-market pipeline to dilute concentration." },
+    ],
+    opportunities: [
+      { opportunity: "Renegotiate supplier terms to lift gross margin", potential_impact: "+2-3% margin", rationale: "Volume has grown enough to unlock tier pricing." },
+    ],
+    recommendations: [
+      { area: "Liquidity", recommendation: "Deploy idle cash into a short-term treasury ladder.", priority: "Low", justification: "Excess current assets are earning nothing." },
+      { area: "Growth", recommendation: "Shift 15% of paid spend to retention.", priority: "Medium", justification: "Retention ROI is currently 3x acquisition." },
+    ],
+    cash_flow_forecast: [
+      { period: "Q3 2026", projected_inflow: 1320000, projected_outflow: 1150000, net_cash_flow: 170000, ending_balance: 650000, commentary: "Seasonal uptick expected." },
+      { period: "Q4 2026", projected_inflow: 1410000, projected_outflow: 1200000, net_cash_flow: 210000, ending_balance: 860000, commentary: "Holiday demand lifts inflow." },
+      { period: "FY 2027", projected_inflow: 5900000, projected_outflow: 5050000, net_cash_flow: 850000, ending_balance: 1710000, commentary: "Full-year expansion, margins hold." },
+      { period: "FY 2028", projected_inflow: 6800000, projected_outflow: 5700000, net_cash_flow: 1100000, ending_balance: 2810000, commentary: "Compounding growth, reinvestment tapers." },
+    ],
+  },
+};
+
 export default function Home() {
   const [mode, setMode] = useState<InputMode>("manual");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progressPct, setProgressPct] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [report, setReport] = useState<ReportResponse | null>(null);
-  const [submittedFinancialData, setSubmittedFinancialData] = useState<FinancialData>({});
+  const [report, setReport] = useState<ReportResponse | null>(PREVIEW ? SAMPLE_REPORT : null);
+  const [submittedFinancialData, setSubmittedFinancialData] = useState<FinancialData>(PREVIEW ? SAMPLE_FINANCIAL_DATA : {});
   const [parsedData, setParsedData] = useState<FinancialData | null>(null);
   const [parsedFileName, setParsedFileName] = useState<string | null>(null);
 
@@ -820,32 +980,42 @@ export default function Home() {
       {/* Radial glow top-center */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none" style={{ background: 'radial-gradient(ellipse at center top, hsl(148,50%,18%) 0%, transparent 65%)' }} />
 
-      <div className="relative z-10 max-w-xl mx-auto px-4 py-12 md:py-16">
+      <div className={`relative z-10 mx-auto px-4 py-12 md:py-16 transition-all ${report ? "max-w-6xl" : "max-w-xl"}`}>
 
-        {/* Header */}
-        <div className="text-center mb-10">
-          <p className="text-xs font-bold tracking-[0.2em] uppercase text-accent mb-5">
-            AI-Powered Financial Intelligence
-          </p>
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.25)' }}>
-            <BarChart3 className="w-7 h-7 text-accent" />
+        {/* Header — full hero on the form, compact brand row on the dashboard */}
+        {report ? (
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.25)' }}>
+              <BarChart3 className="w-5 h-5 text-accent" />
+            </div>
+            <span className="font-serif text-lg font-semibold text-foreground">
+              Financial Statement <span className="italic text-accent">Analyser</span>
+            </span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            Financial Statement{' '}
-            <span className="italic text-accent">Analyser</span>
-          </h1>
-          <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto">
-            Enter figures manually, upload a spreadsheet, or connect a Google Sheet — AI does the rest.
-          </p>
-        </div>
+        ) : (
+          <div className="text-center mb-10">
+            <p className="text-xs font-bold tracking-[0.2em] uppercase text-accent mb-5">
+              AI-Powered Financial Intelligence
+            </p>
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: 'rgba(212,146,15,0.12)', border: '1px solid rgba(212,146,15,0.25)' }}>
+              <BarChart3 className="w-7 h-7 text-accent" />
+            </div>
+            <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-foreground">
+              Financial Statement{' '}
+              <span className="italic font-medium text-accent">Analyser</span>
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto">
+              Enter figures manually, upload a spreadsheet, or connect a Google Sheet — AI does the rest.
+            </p>
+          </div>
+        )}
 
-        {/* Card */}
-        <div className="bg-card border border-card-border rounded-2xl p-6 md:p-8 shadow-2xl" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
-          <AnimatePresence mode="wait">
-            {report ? (
-              <ReportView key="report" data={report} financialData={submittedFinancialData} onReset={handleReset} />
-            ) : (
-              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+        {/* Form card (narrow) / Dashboard (wide) */}
+        <AnimatePresence mode="wait">
+          {report ? (
+            <ReportView key="report" data={report} financialData={submittedFinancialData} onReset={handleReset} />
+          ) : (
+            <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-card border border-card-border rounded-2xl p-6 md:p-8 shadow-2xl" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
@@ -1031,14 +1201,15 @@ export default function Home() {
                     </AnimatePresence>
                   </form>
                 </Form>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <p className="mt-5 text-center text-xs text-muted-foreground">
-          Results are written to your Google Sheets dashboard and emailed to the CFO automatically.
-        </p>
+        {!report && (
+          <p className="mt-5 text-center text-xs text-muted-foreground">
+            Results are written to your Google Sheets dashboard and emailed to the CFO automatically.
+          </p>
+        )}
       </div>
     </div>
   );

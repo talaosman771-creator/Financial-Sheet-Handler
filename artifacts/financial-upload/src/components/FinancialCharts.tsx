@@ -35,10 +35,10 @@ const BLUE    = "#60a5fa";
 const PURPLE  = "#a78bfa";
 const TEAL    = "#2dd4bf";
 const MUTED   = "rgba(232,237,233,0.18)";
-const TEXT    = "rgba(232,237,233,0.65)";
-const GRID    = "rgba(255,255,255,0.05)";
-const CARD2   = "rgba(0,0,0,0.25)";
-const BORDER  = "rgba(255,255,255,0.08)";
+const TEXT    = "rgba(232,237,233,0.82)";
+const GRID    = "rgba(255,255,255,0.07)";
+const CARD2   = "rgba(255,255,255,0.04)";
+const BORDER  = "rgba(255,255,255,0.11)";
 
 const PIE_COLORS = [AMBER, TEAL, BLUE, PURPLE, GREEN, RED, AMBER_L];
 
@@ -160,21 +160,19 @@ export function FinancialCharts({ financialData, keyMetrics, period }: Props) {
         </div>
       )}
 
-      {/* Row 2: Profit Waterfall */}
-      {hasIncome && revenue > 0 && (
-        <ProfitWaterfallChart
-          revenue={revenue}
-          cogs={cogs}
-          grossProfit={grossProfit}
-          opex={opex}
-          operatingIncome={operatingIncome}
-          netIncome={netIncome}
-        />
-      )}
-
-      {/* Row 3: Assets vs Liabilities + Balance structure */}
-      {hasBalance && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Row 2: Profit bridge + Assets vs Liabilities */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {hasIncome && revenue > 0 && (
+          <ProfitWaterfallChart
+            revenue={revenue}
+            cogs={cogs}
+            grossProfit={grossProfit}
+            opex={opex}
+            operatingIncome={operatingIncome}
+            netIncome={netIncome}
+          />
+        )}
+        {hasBalance && (
           <AssetsVsLiabilitiesChart
             currentAssets={currentAssets}
             nonCurrentAssets={nonCurrentAssets}
@@ -182,18 +180,8 @@ export function FinancialCharts({ financialData, keyMetrics, period }: Props) {
             nonCurrentLiabilities={nonCurrentLiabilities}
             equity={equity}
           />
-          <BalanceStructureChart
-            currentAssets={currentAssets}
-            nonCurrentAssets={nonCurrentAssets}
-            currentLiabilities={currentLiabilities}
-            nonCurrentLiabilities={nonCurrentLiabilities}
-            equity={equity}
-          />
-        </div>
-      )}
-
-      {/* Row 4: Ratio gauges */}
-      {keyMetrics.length > 0 && <RatioGauges keyMetrics={keyMetrics} />}
+        )}
+      </div>
     </div>
   );
 }
@@ -384,15 +372,15 @@ function AssetsVsLiabilitiesChart({ currentAssets, nonCurrentAssets, currentLiab
             <LabelList dataKey="current" position="inside" formatter={fmt}
               style={{ fill: "rgba(0,0,0,0.7)", fontSize: 10, fontWeight: 600 }} />
           </Bar>
-          <Bar dataKey="nonCurrent" name="Non-Current / Equity" stackId="a" fill={BLUE} radius={[6, 6, 0, 0]}>
+          <Bar dataKey="nonCurrent" name="Non-Current / Equity" stackId="a" fill={TEAL} radius={[6, 6, 0, 0]}>
             <LabelList dataKey="nonCurrent" position="inside" formatter={fmt}
-              style={{ fill: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600 }} />
+              style={{ fill: "rgba(0,0,0,0.7)", fontSize: 10, fontWeight: 600 }} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
       {/* Legend */}
       <div className="flex items-center gap-4 mt-2">
-        {[{color: AMBER, label: "Current"}, {color: BLUE, label: "Non-Current / Equity"}].map((l, i) => (
+        {[{color: AMBER, label: "Current"}, {color: TEAL, label: "Non-Current / Equity"}].map((l, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm" style={{ background: l.color }} />
             <span className="text-[10px]" style={{ color: TEXT }}>{l.label}</span>
@@ -472,7 +460,7 @@ import { getRatioMeta } from "@/utils/ratioMeta";
 
 // ── GaugeItem ─────────────────────────────────────────────────────────────────
 
-function GaugeItem({ metric, index }: { metric: KeyMetric; index: number }) {
+export function GaugeItem({ metric, index }: { metric: KeyMetric; index: number }) {
   const raw = parseMetric(metric.value);
   const isPercent = String(metric.value).includes("%");
   const isMultiple = String(metric.value).includes("x");
@@ -508,57 +496,45 @@ function GaugeItem({ metric, index }: { metric: KeyMetric; index: number }) {
   const benchmarkLabel = meta ? meta.benchmark(raw) : null;
 
   return (
-    <div className="flex flex-col items-center rounded-xl p-3 gap-1"
-      style={{ background: "rgba(0,0,0,0.18)", border: "1px solid rgba(255,255,255,0.06)" }}>
+    <div className="flex flex-col items-center p-2 gap-1.5">
       {/* Gauge circle */}
-      <div className="relative shrink-0" style={{ width: 90, height: 90 }}>
+      <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
             cx="50%" cy="50%"
-            innerRadius="65%"
+            innerRadius="68%"
             outerRadius="100%"
-            startAngle={200}
-            endAngle={-20}
+            startAngle={220}
+            endAngle={-40}
             data={data}
-            barSize={10}
+            barSize={13}
           >
-            <RadialBar dataKey="value" cornerRadius={5} background={false}>
+            <RadialBar dataKey="value" cornerRadius={7} background={false}>
               {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
             </RadialBar>
           </RadialBarChart>
         </ResponsiveContainer>
         {/* Center value */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-bold" style={{ color }}>{displayVal}</span>
+          <span className="font-serif text-2xl font-semibold tabular-nums" style={{ color }}>{displayVal}</span>
         </div>
       </div>
 
       {/* Metric name */}
-      <p className="text-[10px] font-semibold text-center leading-tight" style={{ color: TEXT }}>
+      <p className="text-[13px] font-semibold text-center leading-tight" style={{ color: "rgba(232,237,233,0.92)" }}>
         {metric.label}
       </p>
 
-      {/* What it means */}
-      {meta && (
-        <>
-          <p className="text-[9px] text-center leading-snug px-0.5" style={{ color: "rgba(200,215,207,0.5)" }}>
-            {meta.description}
-          </p>
-          <span
-            className="mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold"
-            style={{ background: `${color}22`, color }}
-          >
-            {benchmarkLabel}
-          </span>
-        </>
-      )}
-
-      {/* Fallback: show note if no library match */}
-      {!meta && metric.note && (
-        <p className="text-[9px] text-center leading-snug px-0.5" style={{ color: "rgba(200,215,207,0.5)" }}>
+      {/* Benchmark status */}
+      {meta ? (
+        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${color}22`, color }}>
+          {benchmarkLabel}
+        </span>
+      ) : metric.note ? (
+        <p className="text-[11px] text-center leading-snug" style={{ color: "rgba(200,215,207,0.65)" }}>
           {metric.note}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

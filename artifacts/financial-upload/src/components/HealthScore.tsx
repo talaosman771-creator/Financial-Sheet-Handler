@@ -201,18 +201,17 @@ export function HealthScore({ financialData, keyMetrics }: Props) {
   }, [result.score, color]);
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <p className="text-[11px] font-bold tracking-widest uppercase mb-4" style={{ color: '#e8aa2a' }}>
-        Financial Health Score
+    <div className="h-full flex flex-col items-center">
+      <p className="text-[11px] font-bold tracking-widest uppercase self-center" style={{ color: '#e8aa2a' }}>
+        Financial Health
       </p>
 
-      <div className="flex items-start gap-6">
-        {/* Circle */}
+      <div className="flex-1 flex items-center justify-center py-2">
         <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
           <canvas ref={canvasRef} width={SIZE} height={SIZE} style={{ width: SIZE, height: SIZE }} />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <motion.span
-              className="text-4xl font-bold leading-none"
+              className="font-serif text-5xl font-semibold leading-none tabular-nums"
               style={{ color }}
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -220,10 +219,10 @@ export function HealthScore({ financialData, keyMetrics }: Props) {
             >
               {result.score}
             </motion.span>
-            <span className="text-xs mt-1" style={{ color: 'rgba(232,237,233,0.5)' }}>/100</span>
+            <span className="text-xs mt-1.5" style={{ color: 'rgba(232,237,233,0.5)' }}>out of 100</span>
             <motion.span
-              className="text-sm font-semibold mt-2"
-              style={{ color }}
+              className="text-sm font-semibold mt-2 px-2.5 py-0.5 rounded-full"
+              style={{ color, background: `${color}1a` }}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.4 }}
@@ -231,34 +230,6 @@ export function HealthScore({ financialData, keyMetrics }: Props) {
               {result.label}
             </motion.span>
           </div>
-        </div>
-
-        {/* Breakdown bars */}
-        <div className="flex-1 space-y-3 min-w-0 py-2">
-          {result.breakdown.map((b, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 + i * 0.07, duration: 0.35 }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] truncate" style={{ color: 'rgba(232,237,233,0.7)' }}>{b.name}</span>
-                <span className="text-[11px] font-semibold shrink-0 ml-2" style={{ color: scoreColor(Math.round(b.points / b.max * 100)) }}>
-                  {b.note}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: scoreColor(Math.round(b.points / b.max * 100)) }}
-                  initial={{ width: "0%" }}
-                  animate={{ width: `${(b.points / b.max) * 100}%` }}
-                  transition={{ delay: 0.2 + i * 0.07, duration: 0.6, ease: "easeOut" }}
-                />
-              </div>
-            </motion.div>
-          ))}
         </div>
       </div>
     </div>

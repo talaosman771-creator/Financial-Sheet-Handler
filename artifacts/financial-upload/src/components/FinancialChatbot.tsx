@@ -273,7 +273,7 @@ export function FinancialChatbot({ context }: Props) {
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">AI Financial Analyst</p>
+                <p className="font-serif text-[15px] font-semibold text-foreground truncate leading-tight">AI Financial Analyst</p>
                 <p className="text-[10px] text-muted-foreground truncate">Powered by Gemini · {context.period}</p>
               </div>
               <button onClick={() => setOpen(false)}>

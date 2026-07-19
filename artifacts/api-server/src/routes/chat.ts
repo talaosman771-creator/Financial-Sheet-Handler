@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export const chatRouter = Router();
 
@@ -105,28 +105,25 @@ chatRouter.post("/", async (req: Request, res: Response) => {
   res.flushHeaders();
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: buildSystemPrompt(financialContext),
-    });
+    const ai = new GoogleGenAI({ apiKey });
 
     // Convert messages to Gemini format (map assistant→model)
-    const history = messages.slice(0, -1).map((m) => ({
+    const contents = messages.map((m) => ({
       role: m.role === "assistant" ? ("model" as const) : ("user" as const),
       parts: [{ text: m.content }],
     }));
 
-    const chat = model.startChat({
-      history,
-      generationConfig: { maxOutputTokens: 8192 },
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-flash-latest",
+      contents,
+      config: {
+        systemInstruction: buildSystemPrompt(financialContext),
+        maxOutputTokens: 8192,
+      },
     });
 
-    const lastMessage = messages[messages.length - 1].content;
-    const stream = await chat.sendMessageStream(lastMessage);
-
-    for await (const chunk of stream.stream) {
-      const text = chunk.text();
+    for await (const chunk of stream) {
+      const text = chunk.text;
       if (text) {
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }

@@ -3,7 +3,17 @@ import autoTable from "jspdf-autotable";
 
 type FinancialData = Record<string, Record<string, number>>;
 interface KeyMetric { label: string; value: string | number; note?: string; }
-interface Risk { risk?: string; severity?: string; }
+interface Risk { risk?: string; severity?: string; likelihood?: string; mitigation?: string; }
+interface Opportunity { opportunity: string; potential_impact?: string; rationale?: string; }
+interface Recommendation { area: string; recommendation: string; priority?: string; justification?: string; }
+interface CashFlowForecast {
+  period: string;
+  projected_inflow: string | number;
+  projected_outflow: string | number;
+  net_cash_flow: string | number;
+  ending_balance: string | number;
+  commentary?: string;
+}
 
 interface ReportData {
   period: string;
@@ -16,6 +26,9 @@ interface ReportData {
     financial_position?: string;
     key_metrics?: KeyMetric[];
     risks?: (Risk | string)[];
+    opportunities?: Opportunity[];
+    recommendations?: Recommendation[];
+    cash_flow_forecast?: CashFlowForecast[];
   };
   financialData: FinancialData;
 }
@@ -38,10 +51,22 @@ function scoreColor(score: number): [number, number, number] {
   return [248, 113, 113];
 }
 
+// Accurate full-precision currency — no lossy K/M abbreviation.
+const CURRENCY_FMT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
 function fmtCurrency(v: number): string {
-  if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
+  return CURRENCY_FMT.format(v);
+}
+
+/** Parse a possibly-string financial value ("$1,320,000", "170,000", 170000) into a number. */
+function toNum(v: string | number | undefined | null): number {
+  if (v === undefined || v === null) return 0;
+  if (typeof v === "number") return v;
+  const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
 }
 
 // ── Draw helpers ─────────────────────────────────────────────────────────────
@@ -241,18 +266,134 @@ export function exportPDF(data: ReportData) {
     checkPage(30);
     sectionLabel("Risk Factors");
     for (const r of data.report.risks) {
-      checkPage(10);
+      checkPage(12);
       const text = typeof r === "string" ? r : (r.risk ?? "");
       const sev  = typeof r === "object" ? r.severity : undefined;
+      const like = typeof r === "object" ? r.likelihood : undefined;
+      const mit  = typeof r === "object" ? r.mitigation : undefined;
       setFill(doc, AMBER);
       doc.circle(M + 1.5, y - 1.5, 1, "F");
       setTxt(doc, TEXT);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      const label = sev ? `${text}  [${sev}]` : text;
+      const tag = [sev, like].filter(Boolean).join(" · ");
+      const label = tag ? `${text}  [${tag}]` : text;
       const lines = doc.splitTextToSize(label, PW - M * 2 - 6);
       doc.text(lines, M + 5, y);
-      y += lines.length * 5 + 1;
+      y += lines.length * 5 + 0.5;
+      if (mit) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        setTxt(doc, MUTED);
+        const ml = doc.splitTextToSize(`Mitigation: ${mit}`, PW - M * 2 - 6);
+        doc.text(ml, M + 5, y);
+        y += ml.length * 4 + 1;
+      }
+    }
+    y += 4;
+  }
+
+  // ── Opportunities ──
+  if (data.report.opportunities?.length) {
+    checkPage(30);
+    sectionLabel("Opportunities");
+    for (const o of data.report.opportunities) {
+      checkPage(12);
+      setFill(doc, GREEN_CHK);
+      doc.circle(M + 1.5, y - 1.5, 1, "F");
+      setTxt(doc, TEXT);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const head = o.potential_impact ? `${o.opportunity}  [${o.potential_impact}]` : o.opportunity;
+      const lines = doc.splitTextToSize(head, PW - M * 2 - 6);
+      doc.text(lines, M + 5, y);
+      y += lines.length * 5 + 0.5;
+      if (o.rationale) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        setTxt(doc, MUTED);
+        const rl = doc.splitTextToSize(o.rationale, PW - M * 2 - 6);
+        doc.text(rl, M + 5, y);
+        y += rl.length * 4 + 1;
+      }
+    }
+    y += 4;
+  }
+
+  // ── Recommendations ──
+  if (data.report.recommendations?.length) {
+    checkPage(30);
+    sectionLabel("Recommendations");
+    for (const rec of data.report.recommendations) {
+      checkPage(12);
+      setFill(doc, AMBER_L);
+      doc.circle(M + 1.5, y - 1.5, 1, "F");
+      setTxt(doc, TEXT);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const prio = rec.priority ? `  [${rec.priority}]` : "";
+      const head = `${rec.area ? rec.area + " — " : ""}${rec.recommendation}${prio}`;
+      const lines = doc.splitTextToSize(head, PW - M * 2 - 6);
+      doc.text(lines, M + 5, y);
+      y += lines.length * 5 + 0.5;
+      if (rec.justification) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        setTxt(doc, MUTED);
+        const jl = doc.splitTextToSize(rec.justification, PW - M * 2 - 6);
+        doc.text(jl, M + 5, y);
+        y += jl.length * 4 + 1;
+      }
+    }
+    y += 4;
+  }
+
+  // ── Outlook & Expectations (cash-flow forecast) ──
+  if (data.report.cash_flow_forecast?.length) {
+    checkPage(45);
+    sectionLabel("Outlook & Expectations (AI-projected)");
+    const cfRows = data.report.cash_flow_forecast.map(cf => [
+      cf.period,
+      fmtCurrency(toNum(cf.projected_inflow)),
+      fmtCurrency(toNum(cf.projected_outflow)),
+      fmtCurrency(toNum(cf.net_cash_flow)),
+      fmtCurrency(toNum(cf.ending_balance)),
+    ]);
+    autoTable(doc, {
+      startY: y,
+      head: [["Period", "Inflow", "Outflow", "Net", "Ending Bal."]],
+      body: cfRows,
+      theme: "plain",
+      styles: {
+        fontSize: 8.5,
+        textColor: [200, 215, 207],
+        fillColor: [14, 40, 24],
+        lineColor: [255, 255, 255],
+        lineWidth: 0.1,
+        cellPadding: 2.5,
+      },
+      headStyles: {
+        fillColor: [26, 60, 38],
+        textColor: [212, 146, 15],
+        fontStyle: "bold",
+        fontSize: 8,
+      },
+      alternateRowStyles: { fillColor: [10, 31, 19] },
+      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
+      margin: { left: M, right: M },
+      tableWidth: PW - M * 2,
+    });
+    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+    // Per-period commentary
+    for (const cf of data.report.cash_flow_forecast) {
+      if (!cf.commentary) continue;
+      checkPage(10);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      setTxt(doc, MUTED);
+      const cl = doc.splitTextToSize(`${cf.period}: ${cf.commentary}`, PW - M * 2);
+      doc.text(cl, M, y);
+      y += cl.length * 4 + 1;
     }
     y += 4;
   }
