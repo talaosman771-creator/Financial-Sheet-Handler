@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -24,12 +24,17 @@ import {
   Sheet,
   Lightbulb,
   ListChecks,
+  Sparkles,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { FinancialCharts, GaugeItem } from "@/components/FinancialCharts";
-import { HealthScore, calculateHealthScore, scoreColor } from "@/components/HealthScore";
+import { HealthScore, calculateHealthScore, scoreColor, deriveMetricValues } from "@/components/HealthScore";
 import { FinancialChatbot } from "@/components/FinancialChatbot";
+import { WhatIfSimulator } from "@/components/WhatIfSimulator";
+import { TrendPanel } from "@/components/TrendPanel";
+import type { TrendSnapshot } from "@/utils/trendStore";
 import { exportPDF } from "@/utils/exportPDF";
 import { exportExcel } from "@/utils/exportExcel";
 import { getRatioMeta, parseRatioValue } from "@/utils/ratioMeta";
@@ -591,6 +596,15 @@ function ReportView({ data, financialData, industry, onReset }: { data: ReportRe
   const healthResult = calculateHealthScore(financialData, normalisedMetrics, industry);
   const redFlags = computeRedFlags(financialData, normalisedMetrics, industry);
 
+  // Snapshot for trend tracking — stable across re-renders so we don't re-save on every paint.
+  const trendSnapshot: TrendSnapshot = useMemo(() => ({
+    period: data.period,
+    industry,
+    savedAt: Date.parse(data.generated_at) || Date.now(),
+    score: healthResult.score,
+    metrics: deriveMetricValues(financialData, normalisedMetrics),
+  }), [data.period, data.generated_at, industry, healthResult.score, financialData, normalisedMetrics]);
+
   function handleDownloadPDF() {
     try {
       exportPDF({
@@ -740,6 +754,20 @@ function ReportView({ data, financialData, industry, onReset }: { data: ReportRe
           </Panel>
         )}
       </div>
+
+      {/* Row — What-if simulator */}
+      {Object.keys(financialData).length > 0 && (
+        <Panel>
+          <SectionLabel icon={<Sparkles className="w-3.5 h-3.5" />} hint="interactive">What-If Simulator</SectionLabel>
+          <WhatIfSimulator financialData={financialData} industry={industry} />
+        </Panel>
+      )}
+
+      {/* Row — Trend tracking across periods */}
+      <Panel>
+        <SectionLabel icon={<History className="w-3.5 h-3.5" />} hint={`${getIndustryLabel(industry)} history`}>Trend Over Time</SectionLabel>
+        <TrendPanel industry={industry} current={trendSnapshot} />
+      </Panel>
 
       {/* Row 4 — Risks / Opportunities / Recommendations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
@@ -1054,9 +1082,14 @@ export default function Home() {
         }),
       });
 
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}: ${res.statusText}`);
-      const data: ReportResponse = await res.json();
-      if (!data.success) throw new Error("Webhook returned success: false");
+      // The API proxy returns a JSON { success, error } body even on failure —
+      // prefer its message over a bare status code.
+      const data: ReportResponse & { error?: string } = await res
+        .json()
+        .catch(() => ({ success: false, error: `Server returned ${res.status}: ${res.statusText}` }));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Analysis failed (${res.status}).`);
+      }
 
       clearInterval(progressTimer.current!);
       setProgressPct(100);
