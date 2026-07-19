@@ -29,6 +29,7 @@ import { FinancialCharts } from "@/components/FinancialCharts";
 import { HealthScore, calculateHealthScore, scoreColor } from "@/components/HealthScore";
 import { exportPDF } from "@/utils/exportPDF";
 import { exportExcel } from "@/utils/exportExcel";
+import { getRatioMeta, parseRatioValue } from "@/utils/ratioMeta";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -467,13 +468,33 @@ function ReportView({ data, financialData, onReset }: { data: ReportResponse; fi
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-accent"><BarChart3 className="w-3.5 h-3.5" />Key Metrics</div>
           <div className="grid grid-cols-2 gap-2">
-            {data.report.key_metrics.map((m, i) => (
-              <div key={i} className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <p className="text-xs text-muted-foreground truncate">{m.label}</p>
-                <p className="text-sm font-semibold text-accent mt-0.5">{fmt(m.value)}</p>
-                {m.note && <p className="text-xs text-muted-foreground mt-0.5">{m.note}</p>}
-              </div>
-            ))}
+            {data.report.key_metrics.map((m, i) => {
+              const meta = m?.label ? getRatioMeta(m.label) : null;
+              return (
+                <div key={i} className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  {/* Ratio name */}
+                  <p className="text-xs font-semibold text-foreground truncate">{m.label}</p>
+                  {/* What it measures */}
+                  {meta && (
+                    <p className="text-[10px] leading-snug" style={{ color: 'rgba(200,215,207,0.5)' }}>
+                      {meta.description}
+                    </p>
+                  )}
+                  {/* The value */}
+                  <p className="text-sm font-bold text-accent mt-1">{fmt(m.value)}</p>
+                  {/* Benchmark verdict */}
+                  {meta && (
+                    <p className="text-[10px] font-medium" style={{ color: 'rgba(212,146,15,0.85)' }}>
+                      {meta.benchmark(parseRatioValue(m.value))}
+                    </p>
+                  )}
+                  {/* Fallback note */}
+                  {!meta && m.note && (
+                    <p className="text-[10px] text-muted-foreground">{m.note}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
