@@ -40,13 +40,12 @@ outputType = "console"
 name = "artifacts/financial-upload: web"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=5173 BASE_PATH=/ pnpm --filter @workspace/financial-upload run dev"
-waitForPort = 5173
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=24790 BASE_PATH=/ pnpm --filter @workspace/financial-upload run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
