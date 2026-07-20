@@ -9,6 +9,8 @@
 // the red-flags engine, the what-if simulator, and trend tracking.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { statusColor, statusFromTier } from "./statusColors";
+
 export type IndustryId =
   | "retail"
   | "restaurant"
@@ -349,13 +351,9 @@ export function metricKeyFromLabel(label: string): MetricKey | null {
 }
 
 export function tierColor(tier: Tier): string {
-  switch (tier) {
-    case "excellent": return "#4ade80";
-    case "good":      return "#86c34a";
-    case "fair":      return "#e8aa2a";
-    case "weak":      return "#e07b39";
-    case "critical":  return "#f87171";
-  }
+  // Canonical traffic-light lives in statusColors — this keeps ratio bars,
+  // trends and the what-if readouts on the exact same green/yellow/orange/red.
+  return statusColor(statusFromTier(tier));
 }
 
 export function getIndustryLabel(id: IndustryId): string {

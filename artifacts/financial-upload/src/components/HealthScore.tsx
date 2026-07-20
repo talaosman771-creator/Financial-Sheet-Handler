@@ -7,6 +7,7 @@ import {
   type IndustryId,
   type MetricKey,
 } from "@/utils/industryBenchmarks";
+import { statusColor, statusFromScore } from "@/utils/statusColors";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,10 +171,10 @@ export function calculateHealthScore(
 
 // ── Score color ──────────────────────────────────────────────────────────────
 
+// Routes through the canonical traffic-light: green ≥70, yellow ≥50,
+// orange ≥35, red below — so the score dial matches every other indicator.
 export function scoreColor(score: number): string {
-  if (score >= 70) return "#4ade80";
-  if (score >= 40) return "#d4920f";
-  return "#f87171";
+  return statusColor(statusFromScore(score));
 }
 
 // ── Component ────────────────────────────────────────────────────────────────

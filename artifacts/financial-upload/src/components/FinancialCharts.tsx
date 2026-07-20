@@ -13,6 +13,12 @@ import {
   CartesianGrid,
   LabelList,
 } from "recharts";
+import {
+  scoreRatio,
+  metricKeyFromLabel,
+  type IndustryId,
+} from "@/utils/industryBenchmarks";
+import { statusColor, statusFromTier, STATUS_COLORS } from "@/utils/statusColors";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -460,7 +466,7 @@ import { getRatioMeta } from "@/utils/ratioMeta";
 
 // ── GaugeItem ─────────────────────────────────────────────────────────────────
 
-export function GaugeItem({ metric, index }: { metric: KeyMetric; index: number }) {
+export function GaugeItem({ metric, index, industry }: { metric: KeyMetric; index: number; industry?: IndustryId }) {
   const raw = parseMetric(metric.value);
   const isPercent = String(metric.value).includes("%");
   const isMultiple = String(metric.value).includes("x");
@@ -484,8 +490,13 @@ export function GaugeItem({ metric, index }: { metric: KeyMetric; index: number 
     displayVal = raw.toFixed(2);
   }
 
+  // Colour by the metric's real health, not a decorative rotation: a weak ratio
+  // now reads orange/red instead of a reassuring teal. Falls back to the brand
+  // rotation only when the metric can't be scored (unknown metric / no industry).
   const GAUGE_COLORS = [AMBER, TEAL, GREEN, BLUE];
-  const color = GAUGE_COLORS[index % GAUGE_COLORS.length];
+  const scoreKey = metricKeyFromLabel(metric.label);
+  const scored = scoreKey && industry ? scoreRatio(scoreKey, raw, industry) : null;
+  const color = scored ? statusColor(statusFromTier(scored.tier)) : GAUGE_COLORS[index % GAUGE_COLORS.length];
 
   const data = [
     { name: metric.label, value: normalised, fill: color },
@@ -525,8 +536,12 @@ export function GaugeItem({ metric, index }: { metric: KeyMetric; index: number 
         {metric.label}
       </p>
 
-      {/* Benchmark status */}
-      {meta ? (
+      {/* Benchmark status — sector verdict first (matches the gauge colour), else generic */}
+      {scored ? (
+        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${color}22`, color }}>
+          {scored.status} · {scored.vsIndustry}
+        </span>
+      ) : meta ? (
         <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${color}22`, color }}>
           {benchmarkLabel}
         </span>

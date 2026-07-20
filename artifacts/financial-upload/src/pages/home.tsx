@@ -709,7 +709,7 @@ function ReportView({ data, financialData, industry, onReset }: { data: ReportRe
           <HealthScore financialData={financialData} keyMetrics={normalisedMetrics} industry={industry} />
         </div>
         {normalisedMetrics.slice(0, 4).map((m, i) => (
-          <GaugeItem key={i} metric={m} index={i} />
+          <GaugeItem key={i} metric={m} index={i} industry={industry} />
         ))}
       </div>
 

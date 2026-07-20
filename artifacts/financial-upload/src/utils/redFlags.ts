@@ -15,6 +15,7 @@ import {
   extractRawFinancials,
   deriveMetricValues,
 } from "@/components/HealthScore";
+import { STATUS_COLORS } from "./statusColors";
 
 type FinancialData = Record<string, Record<string, number>>;
 interface KeyMetric { label: string; value: string | number; note?: string; }
@@ -32,11 +33,12 @@ export interface RedFlag {
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
+// Same traffic-light as everything else: red → orange → yellow → green.
 export const severityColor: Record<Severity, string> = {
-  critical: "#f87171",
-  high: "#e07b39",
-  medium: "#e8aa2a",
-  low: "#86c34a",
+  critical: STATUS_COLORS.critical, // red
+  high: STATUS_COLORS.warning,      // orange
+  medium: STATUS_COLORS.caution,    // yellow
+  low: STATUS_COLORS.healthy,       // green
 };
 
 // Plain-language templates for a weak/critical ratio, phrased for a business owner.
